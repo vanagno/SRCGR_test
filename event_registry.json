@@ -1,0 +1,175 @@
+{
+  "assignments": {
+    "Andravida2008_Konstantinou_2009.json": "2008-06-08_8-june-2008-northwest-peloponnese",
+    "Athens1999_Baumont_2002.json": "undated_7-september-1999-athens-earthquake",
+    "Corinth2021_Zahradnik_2022.json": "2021-02-17_17-february-2021-western-corinth-rift",
+    "CretanBasin2012_Kiratzi_2013.json": "2012-01-27_27-january-2012-cretan-basin-earthquake",
+    "Crete2009_Bocchini_2020.json": "2009-07-01_july-1-2009-south-of-crete-earthquake",
+    "Crete2020_Heidarzadeh_2021.json": "2020-05-02_2-may-2020-offshore-crete-earthquake-and",
+    "Crete2021_Famiglietti_2022.json": "2021-09-27_27-september-2021-central-crete",
+    "Crete365_Papadimitriou_2008.json": "undated_ad-365-crete-earthquake",
+    "Doirani2009_Kiratzi_2010.json": "2009-05-24_24-may-2009-lake-doirani-earthquake",
+    "Kasos2015_Kiratzi_2016.json": "2015-04-16_16-april-2015-kasos-island-eastern",
+    "Kos2017_Papadopoulos_2019.json": "2017-07-20_20-july-2017-bodrum-kos-east-aegean-sea",
+    "Lefkada2003_Benetatos_2007.json": "2003-08-14_14-august-2003-lefkada-ionian-islands",
+    "Lefkada2015_Melgar_2017.json": "2015-11-17_17-november-2015-lefkada-greece",
+    "Lemnos2013_KiratziSvigkas_2013.json": "2013-01-08_8-january-2013-lemnos-island-east-aegean",
+    "Lesvos2017_Utkucu_2021.json": "2017-06-12_12-june-2017-karaburun-lesvos-northern",
+    "Methoni2008_Roumelioti_2009.json": "2008-02-14_14-february-2008-mw-6-7-earthquake",
+    "NorthAegean2014_Bulut_2018.json": "2014-05-24_24-may-2014-north-aegean-sea-samothraki",
+    "Rodos2012_Kiratzi_2013.json": "2012-06-10_10-june-2012-rodos-basin-earthquake",
+    "Samos2020_Aktug_2021.json": "2020-10-30_30-october-2020-samos-aegean-sea",
+    "Skyros2001_Roumelioti_2004.json": "2001-07-26_2001-july-26-skyros-island-earthquake",
+    "Zakynthos2018_Cirella_2020.json": "2018-10-25_25-october-2018-mw-6-8-zakynthos"
+  },
+  "events": {
+    "2001-07-26_2001-july-26-skyros-island-earthquake": {
+      "latitude": 39.01,
+      "longitude": 24.35,
+      "magnitude": 6.5,
+      "name": "2001 July 26 Skyros Island earthquake",
+      "origin_time_utc": "2001-07-26T00:21:38Z"
+    },
+    "2003-08-14_14-august-2003-lefkada-ionian-islands": {
+      "latitude": 38.823,
+      "longitude": 20.604,
+      "magnitude": 6.2,
+      "name": "14 August 2003 Lefkada, Ionian Islands earthquake",
+      "origin_time_utc": "2003-08-14T05:14:00Z"
+    },
+    "2008-02-14_14-february-2008-mw-6-7-earthquake": {
+      "latitude": 36.575,
+      "longitude": 21.869,
+      "magnitude": 6.7,
+      "name": "14 February 2008 Mw 6.7 earthquake offshore south Peloponnese (Methoni), Greece",
+      "origin_time_utc": "2008-02-14T10:09:25Z"
+    },
+    "2008-06-08_8-june-2008-northwest-peloponnese": {
+      "latitude": 37.924,
+      "longitude": 21.46,
+      "magnitude": 6.4,
+      "name": "8 June 2008 Northwest Peloponnese (Andravida/Movri) earthquake",
+      "origin_time_utc": "2008-06-08T12:25:28Z"
+    },
+    "2009-05-24_24-may-2009-lake-doirani-earthquake": {
+      "latitude": 41.267,
+      "longitude": 22.696,
+      "magnitude": 5.2,
+      "name": "24 May 2009 Lake Doirani earthquake (Greece-North Macedonia border)",
+      "origin_time_utc": "2009-05-24T16:17:50.800000Z"
+    },
+    "2009-07-01_july-1-2009-south-of-crete-earthquake": {
+      "latitude": 34.36,
+      "longitude": 25.41,
+      "magnitude": 6.45,
+      "name": "July 1, 2009 South of Crete earthquake",
+      "origin_time_utc": "2009-07-01T09:30:00Z"
+    },
+    "2012-01-27_27-january-2012-cretan-basin-earthquake": {
+      "latitude": 36.044,
+      "longitude": 25.064,
+      "magnitude": 5.3,
+      "name": "27 January 2012 Cretan Basin earthquake",
+      "origin_time_utc": "2012-01-27T01:33:24Z"
+    },
+    "2012-06-10_10-june-2012-rodos-basin-earthquake": {
+      "latitude": 36.441,
+      "longitude": 28.904,
+      "magnitude": 6.0,
+      "name": "10 June 2012 Rodos Basin earthquake",
+      "origin_time_utc": "2012-06-10T12:44:17.300000Z"
+    },
+    "2013-01-08_8-january-2013-lemnos-island-east-aegean": {
+      "latitude": 39.641,
+      "longitude": 25.611,
+      "magnitude": 5.8,
+      "name": "8 January 2013 Lemnos Island (East Aegean Sea) earthquake",
+      "origin_time_utc": "2013-01-08T14:16:09Z"
+    },
+    "2014-05-24_24-may-2014-north-aegean-sea-samothraki": {
+      "latitude": null,
+      "longitude": null,
+      "magnitude": 6.9,
+      "name": "24 May 2014 North Aegean Sea (Samothraki) earthquake",
+      "origin_time_utc": "2014-05-24T09:25:00Z"
+    },
+    "2015-04-16_16-april-2015-kasos-island-eastern": {
+      "latitude": 35.23,
+      "longitude": 26.82,
+      "magnitude": 6.1,
+      "name": "16 April 2015 Kasos Island, eastern Hellenic subduction zone, Greece",
+      "origin_time_utc": "2015-04-16T18:07:44Z"
+    },
+    "2015-11-17_17-november-2015-lefkada-greece": {
+      "latitude": 38.6655,
+      "longitude": 20.6002,
+      "magnitude": 6.5,
+      "name": "17 November 2015 Lefkada, Greece, earthquake",
+      "origin_time_utc": "2015-11-17T07:10:07Z"
+    },
+    "2017-06-12_12-june-2017-karaburun-lesvos-northern": {
+      "latitude": 38.8565,
+      "longitude": 26.3093,
+      "magnitude": 6.3,
+      "name": "12 June 2017 Karaburun–Lesvos, northern Aegean Sea, earthquake",
+      "origin_time_utc": "2017-06-12T12:28:38Z"
+    },
+    "2017-07-20_20-july-2017-bodrum-kos-east-aegean-sea": {
+      "latitude": 36.96,
+      "longitude": 27.41,
+      "magnitude": 6.6,
+      "name": "20 July 2017 Bodrum-Kos, east Aegean Sea, earthquake (north-dipping alternative)",
+      "origin_time_utc": "2017-07-20T22:31:11Z"
+    },
+    "2018-10-25_25-october-2018-mw-6-8-zakynthos": {
+      "latitude": 37.3768,
+      "longitude": 20.5805,
+      "magnitude": 6.8,
+      "name": "25 October 2018 Mw 6.8 Zakynthos earthquake (Ionian Sea, Greece)",
+      "origin_time_utc": "2018-10-25T22:54:50.090000Z"
+    },
+    "2020-05-02_2-may-2020-offshore-crete-earthquake-and": {
+      "latitude": 34.205,
+      "longitude": 25.712,
+      "magnitude": 6.67,
+      "name": "2 May 2020 offshore Crete earthquake and tsunami",
+      "origin_time_utc": "2020-05-02T12:51:06Z"
+    },
+    "2020-10-30_30-october-2020-samos-aegean-sea": {
+      "latitude": 37.8442,
+      "longitude": 26.831,
+      "magnitude": 6.9,
+      "name": "30 October 2020 Samos, Aegean Sea, earthquake",
+      "origin_time_utc": "2020-10-30T11:51:26Z"
+    },
+    "2021-02-17_17-february-2021-western-corinth-rift": {
+      "latitude": 38.36,
+      "longitude": 21.94,
+      "magnitude": 5.3,
+      "name": "17 February 2021 Western Corinth Rift, Greece, earthquake (shallow Sub2 slip)",
+      "origin_time_utc": "2021-02-17T03:36:06Z"
+    },
+    "2021-09-27_27-september-2021-central-crete": {
+      "latitude": 35.1512,
+      "longitude": 25.2736,
+      "magnitude": 5.8,
+      "name": "27 September 2021 Central Crete (Arkalochori), Greece, earthquake",
+      "origin_time_utc": "2021-09-27T06:17:21Z"
+    },
+    "undated_7-september-1999-athens-earthquake": {
+      "latitude": null,
+      "longitude": null,
+      "magnitude": 5.9,
+      "name": "7 September 1999 Athens earthquake",
+      "origin_time_utc": null
+    },
+    "undated_ad-365-crete-earthquake": {
+      "latitude": null,
+      "longitude": null,
+      "magnitude": 8.4,
+      "name": "AD 365 Crete earthquake",
+      "origin_time_utc": null
+    }
+  },
+  "version": 1
+}

@@ -1,0 +1,14 @@
+# Build output (rebuilt by `python build.py` and by CI)
+dist/
+
+# Written by build.py only when event matching needs a manual decision
+event_review.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# OS clutter
+.DS_Store
