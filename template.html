@@ -247,6 +247,8 @@
     #filters { max-height: none; }
     #modelList { flex: none; max-height: 60vh; border-bottom: 1px solid var(--line); }
     #map { height: 480px; }
+    /* The open legend scrolls instead of growing over the top-left zoom/home/measure buttons. */
+    #legendControl details[open] { max-height: 280px; overflow-y: auto; }
     #detail { border-left: none; border-top: 1px solid var(--line); overflow: visible; }
     header .stats { text-align: left; }
   }
@@ -425,7 +427,8 @@ function bareDoi(doi) {
 
 function doiUrl(doi) {
   const bare = bareDoi(doi);
-  return bare ? safeHttpUrl("https://doi.org/" + encodeURI(bare)) : null;
+  // Encode each path segment so "#" and "?" (allowed in DOIs, e.g. SICI) stay part of the DOI.
+  return bare ? safeHttpUrl("https://doi.org/" + bare.split("/").map(encodeURIComponent).join("/")) : null;
 }
 
 function publicationUrl(ref) {
@@ -659,11 +662,14 @@ function segmentSurfacePolygon(geo) {
   return [pt(0, 0), pt(L, 0), pt(L, W), pt(0, W)];
 }
 
+// The event star marks the hypocentre. Without one, use a reference point that stands for the
+// hypocentre or the plane centre before other plane points (e.g. a top-edge point).
 function repPoint(model) {
-  const segment = (model.fault_segments || []).find(s => hasCoordinates(s.reference_point));
-  if (segment) return [segment.reference_point.latitude, segment.reference_point.longitude];
   const hypocenter = model.event && model.event.hypocenter;
   if (hasCoordinates(hypocenter)) return [hypocenter.latitude, hypocenter.longitude];
+  const refs = (model.fault_segments || []).map(s => s.reference_point).filter(p => hasCoordinates(p));
+  const ref = refs.find(p => p.position === "hypocenter") || refs.find(p => p.position === "center") || refs[0];
+  if (ref) return [ref.latitude, ref.longitude];
   for (const s of model.fault_segments || []) {
     const p = (s.patches || []).find(hasCoordinates);
     if (p) return [p.latitude, p.longitude];
@@ -770,13 +776,18 @@ function setupDualSlider(minId, maxId, fillId, minLabelId, maxLabelId, dataMin, 
   minEl.value = dataMin;
   maxEl.value = dataMax;
 
-  function update() {
+  // Both inputs keep the full data range so their thumbs stay on the shared track and fill;
+  // a thumb moved past the other stops at the other's value.
+  function update(e) {
     let minV = parseFloat(minEl.value);
     let maxV = parseFloat(maxEl.value);
-    if (minV > maxV) { minV = maxV; minEl.value = minV; }
-    minEl.max = maxV;
-    maxEl.min = minV;
+    if (minV > maxV) {
+      if (e && e.target === maxEl) { maxV = minV; maxEl.value = maxV; }
+      else { minV = maxV; minEl.value = minV; }
+    }
     const range = (dataMax - dataMin) || 1;
+    // When the thumbs meet, keep on top the one that can still move away (the max thumb is on top by default).
+    minEl.style.zIndex = minV - dataMin > range / 2 ? "1" : "";
     const minPct = ((minV - dataMin) / range) * 100;
     const maxPct = ((maxV - dataMin) / range) * 100;
     fillEl.style.left = minPct + "%";
@@ -902,6 +913,7 @@ const LegendControl = L.Control.extend({
     const div = L.DomUtil.create("div", "gb-control", "");
     div.id = "legendControl";
     L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);  // the wheel scrolls a height-limited legend, not the map
     // Collapsible so the legend does not cover the small single-column map.
     div.innerHTML = `<details id="legendDetails" ${window.matchMedia("(max-width: 640px)").matches ? "" : "open"}>
       <summary>Legend</summary>
@@ -968,9 +980,10 @@ function eventPopupContent(group) {
     const small = document.createElement("small");
     small.textContent = `${dataTypesOf(m).join(", ") || "data types not stated"} · ${modelPhase(m)}`;
     btn.appendChild(small);
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", e => {
       map.closePopup();
-      selectModel(m._browser_id, { focusMarker: true });
+      // As for a star click: keep focus on the star only when the choice was made from the keyboard.
+      selectModel(m._browser_id, { focusMarker: e.detail === 0 });
     });
     div.appendChild(btn);
   });
@@ -1056,13 +1069,30 @@ function render() {
       if (el) el.setAttribute("aria-label", label + (single ? "" : " (choose a model)"));
     });
     if (single) {
-      marker.on("click", () => selectModel(g.models[0]._browser_id, { focusMarker: true }));
+      // Focus moves to the new star only for keyboard/assistive clicks (detail 0): a focused star
+      // keeps its tooltip open, which would cover the slip drawn for a mouse selection.
+      marker.on("click", e => selectModel(g.models[0]._browser_id, { focusMarker: !!e.originalEvent && e.originalEvent.detail === 0 }));
     } else {
       marker.bindPopup(() => eventPopupContent(g), { minWidth: 220, maxWidth: 300 });
+      // Leaflet closes popups on Escape only while the map container itself has focus. Also close
+      // this one when focus is inside it, and return keyboard focus (Escape, keyboard ×) to the star.
+      marker.once("popupopen", e => {
+        const popupEl = e.popup.getElement();
+        const focusStar = () => { const el = marker.getElement(); if (el) el.focus({ preventScroll: true }); };
+        popupEl.addEventListener("keydown", ev => {
+          if (ev.key !== "Escape") return;
+          focusStar();
+          marker.closePopup();
+        });
+        popupEl.addEventListener("click", ev => {
+          if (ev.detail === 0 && ev.target.closest(".leaflet-popup-close-button")) focusStar();
+        });
+      });
     }
-    // Leaflet markers are focusable; Enter/Space activate them like a click.
+    // Leaflet markers are focusable; Enter/Space activate them like a click, Escape closes their popup.
     marker.on("keydown", e => {
       const key = e.originalEvent.key;
+      if (key === "Escape" && marker.isPopupOpen()) { marker.closePopup(); return; }
       if (key !== "Enter" && key !== " ") return;
       e.originalEvent.preventDefault();
       if (single) {
@@ -1110,6 +1140,9 @@ function applyHash() {
 
 // ---------- selection + detail panel ----------
 function selectModel(id, opts = {}) {
+  // Back/Forward and permalinks can change the model while the fullscreen viewer is open; the
+  // viewer shows the current slip grids, which are replaced below, so close it first.
+  closeSlipViewer();
   const m = id != null ? MODEL_BY_ID.get(id) : null;
   selectedId = m ? m._browser_id : null;
   if (m && opts.updateHash !== false) {
@@ -1511,6 +1544,7 @@ function renderPatchGrid(m) {
   }
   const vmax = modelSlipMax(m);
   slipGridState = { model: m, grids, vmax };
+  slipViewer.active = 0;  // the previous model may have had more segments
 
   grids.forEach((g, index) => {
     const section = document.createElement("section");
