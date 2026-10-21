@@ -57,7 +57,7 @@ def _parse_time(value, source):
 
 
 def _coordinates(event):
-    h = event.get('hypocenter') or {}
+    h = _dict(event.get('hypocenter'))
     try:
         lat, lon = float(h.get('latitude')), float(h.get('longitude'))
         if math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180:
@@ -136,6 +136,12 @@ def _new_event_key(o, filename, taken):
     return key
 
 
+def _same_observation(o, stored):
+    """True if a registry event's stored data are exactly observation o (e.g. a renamed, unchanged file)."""
+    fields = ('origin_time_utc', 'magnitude', 'name') + (('latitude', 'longitude') if o['origin_time_utc'] else ())
+    return all(o[f] == stored.get(f) for f in fields)
+
+
 def group_models(input_models, registry, overrides):
     """Assign every (filename, model) to an earthquake.
 
@@ -144,66 +150,114 @@ def group_models(input_models, registry, overrides):
     entries) when a record cannot be matched unambiguously and ValueError for
     unusable registry/override contents. Contributor event_id/model_id values
     are informational only and never used here.
+
+    Event keys are stable, but an event's data (time, place, magnitude, name)
+    always come from the current record of its first file in filename order.
+    Stored registry data are used only for events that no present file belongs
+    to, so that a renamed file finds its event again.
     """
     known = registry.get('events') if isinstance(registry, dict) else None
     previous = registry.get('assignments') if isinstance(registry, dict) else None
-    if not isinstance(known, dict) or not isinstance(previous, dict) or not all(isinstance(e, dict) for e in known.values()):
+    if (not isinstance(known, dict) or not isinstance(previous, dict)
+            or not all(isinstance(e, dict) for e in known.values()) or not all(isinstance(v, str) for v in previous.values())):
         raise ValueError(f'{REGISTRY_PATH.name} must contain "events" and "assignments" objects.')
     if not isinstance(overrides, dict) or not all(isinstance(v, str) for v in overrides.values()):
         raise ValueError(f'{OVERRIDES_PATH.name} must map model filenames to an event key or "separate".')
-    filenames = {name for name, _ in input_models}
+    models = dict(input_models)
+    names = sorted(models)
     notes = [f'{OVERRIDES_PATH.name}: no published model file named {name!r}; entry ignored.'
-             for name in sorted(overrides) if name not in filenames]
-    # Events of files explicitly kept "separate" never absorb other files automatically.
-    private = {previous[n] for n, v in overrides.items() if v == 'separate' and previous.get(n) in known}
-    events, assignments, resolved, review = {}, {}, [], []
-    for filename, model in sorted(input_models, key=lambda item: item[0]):
-        o = _observation(model, filename)
-        override, prev = overrides.get(filename), previous.get(filename)
-        catalogue = {**known, **events}
-        if override == 'separate':
-            shared = prev in events or any(v == prev for n, v in previous.items() if n != filename)
-            key = prev if prev in known and not shared else _new_event_key(o, filename, catalogue)
+             for name in sorted(overrides) if name not in models]
+    obs = {name: _observation(models[name], name) for name in names}
+
+    # 1. Files that stay with a registry event: an override naming it, or their committed assignment.
+    holders = {}
+    for name in names:
+        v, prev = overrides.get(name), previous.get(name)
+        key = prev if v in (None, 'separate') and prev in known else v if v in known else None
+        if key is not None:
+            holders.setdefault(key, []).append(name)
+    # Events of files kept "separate" never absorb other files automatically ("private"). A file kept
+    # "separate" leaves a shared event that another file keeps automatically; otherwise it keeps the key.
+    assignments, private, anchors = {}, set(), dict(known)
+    for key, members in holders.items():
+        apart = [n for n in members if overrides.get(n) == 'separate']
+        staying = [n for n in members if n not in apart]
+        if apart and all(n in overrides for n in staying):
+            staying = sorted(staying + apart[:1])
             private.add(key)
-        elif override is not None:
-            if override not in catalogue:
-                raise ValueError(f'{OVERRIDES_PATH.name}: {filename} -> unknown event key {override!r}. '
-                                 f'Use a key from {REGISTRY_PATH.name} or {REVIEW_PATH.name}, or "separate".')
-            key = override
-        elif prev in known:
-            key = prev  # stable keys: keep the committed assignment
-            status, seconds, km = _similarity(o, known[prev])
-            if o['origin_time_utc'] and status == 'different':
-                detail = 'registry event is undated' if seconds is None else f'{round(seconds)} s apart'
+        for name in staying:
+            assignments[name] = key
+        anchors[key] = obs[staying[0]]  # current data, not the stored copy
+        for name in staying[1:]:
+            status, seconds, km = _similarity(obs[name], anchors[key])
+            if name not in overrides and obs[name]['origin_time_utc'] and status == 'different':
+                detail = f'{staying[0]} is undated' if seconds is None else f'{round(seconds)} s apart'
                 detail += '' if km is None else f', {round(km)} km apart'
-                notes.append(f'{filename}: kept registry event {prev!r} although the record no longer matches it '
+                notes.append(f'{name}: kept registry event {key!r} although the record no longer matches {staying[0]} '
                              f'({detail}); add an {OVERRIDES_PATH.name} entry if this is wrong.')
+
+    # 2. Every other file, in filename order, against all events known so far.
+    created, review = {}, []
+    for name in names:
+        if name in assignments:
+            continue
+        o, v = obs[name], overrides.get(name)
+        catalogue, held = {**anchors, **created}, set(assignments.values())
+        # A file without a previous assignment (e.g. renamed) takes over an orphaned event with identical data.
+        orphans = ([k for k in sorted(known) if k not in held and _same_observation(o, known[k])]
+                   if previous.get(name) not in known else [])
+        if v == 'separate':
+            key = orphans[0] if len(orphans) == 1 else _new_event_key(o, name, catalogue)
+            private.add(key)
+        elif v is not None:
+            if v not in catalogue:
+                raise ValueError(f'{OVERRIDES_PATH.name}: {name} -> unknown event key {v!r}. '
+                                 f'Use a key from {REGISTRY_PATH.name} or {REVIEW_PATH.name}, or "separate".')
+            key = v
+        elif len(orphans) == 1:
+            key = orphans[0]
         elif not o['origin_time_utc']:
-            key = _new_event_key(o, filename, catalogue)  # no origin_time: not matched automatically
+            key = _new_event_key(o, name, catalogue)  # no origin_time: not matched automatically
         else:
-            found = {k: _similarity(o, ev)[0] for k, ev in catalogue.items() if k not in private}
-            matches = sorted(k for k, s in found.items() if s == 'match')
-            possible = sorted(k for k, s in found.items() if s == 'possible')
+            found = {k: _similarity(o, ev)[0] for k, ev in catalogue.items()}
+            # A resemblance to a "separate" event always needs a decision; it is never merged silently.
+            matches = sorted(k for k, s in found.items() if s == 'match' and k not in private)
+            possible = sorted(k for k, s in found.items() if s == 'possible' or (s == 'match' and k in private))
             if len(matches) == 1 and not possible:
                 key = matches[0]
             elif not matches and not possible:
-                key = _new_event_key(o, filename, catalogue)
+                key = _new_event_key(o, name, catalogue)
             else:
-                review.append({'file': filename, 'matches': matches, 'possible_matches': possible})
+                review.append({'file': name, 'matches': matches, 'possible_matches': possible})
                 continue
-        assignments[filename] = key
-        event = events.setdefault(key, dict(known.get(key) or o))
-        resolved.append((filename, {**model,
-                                    '_browser_id': Path(filename).stem,
-                                    '_browser_source_file': filename,
-                                    '_browser_event_key': key,
-                                    '_browser_event_name': str(event.get('name') or o['name']),
-                                    '_browser_warnings': []}))
+        if key in known and key not in held:
+            anchors[key] = o  # an orphaned event's first file
+        elif key not in catalogue:
+            created[key] = o
+        assignments[name] = key
     if review:
         raise MatchError(f'{len(review)} model file(s) could not be matched unambiguously to an earthquake.', review)
-    pending = {'version': 1,
-               'events': {k: events[k] for k in sorted(events)},
-               'assignments': dict(sorted(assignments.items()))}
+
+    # 3. Each event's data are those of its first file; report changes to committed events.
+    members = {}
+    for name in names:
+        members.setdefault(assignments[name], []).append(name)
+    events = {k: dict(obs[members[k][0]]) for k in sorted(members)}
+    for key, event in events.items():
+        stored = known.get(key)
+        changed = [f'{f} {stored.get(f)!r} -> {event[f]!r}' for f in event if stored.get(f) != event[f]] if stored else []
+        if changed:
+            near = sorted(k for k, e in events.items() if k != key and _similarity(event, e)[0] != 'different')
+            notes.append(f'registry event {key!r} updated from {members[key][0]}: {"; ".join(changed)}'
+                         + (f'; it now resembles {near}: map the files to one key in {OVERRIDES_PATH.name} '
+                            f'if they are the same earthquake' if near else ''))
+    resolved = [(name, {**models[name],
+                        '_browser_id': Path(name).stem,
+                        '_browser_source_file': name,
+                        '_browser_event_key': assignments[name],
+                        '_browser_event_name': events[assignments[name]]['name'],
+                        '_browser_warnings': []}) for name in names]
+    pending = {'version': 1, 'events': events, 'assignments': {name: assignments[name] for name in names}}
     return resolved, pending, notes
 
 
@@ -222,6 +276,12 @@ def _reject_constant(name):
     raise ValueError(f'non-standard JSON value {name} (NaN/Infinity are not allowed)')
 
 
+def _finite(value, text):
+    if abs(value) > sys.float_info.max:  # e.g. 1e999: Python reads infinity, which JSON cannot represent
+        raise ValueError(f'number {_clip(text, width=40)} is out of range (it is not a finite number)')
+    return value
+
+
 def load_json(path):
     """Parse a JSON file. On failure print file/line/column/context and return None."""
     path = Path(path)
@@ -231,7 +291,8 @@ def load_json(path):
         print(f'\nERROR READING: {path.name}\n  {e}')
         return None
     try:
-        return json.loads(text, parse_constant=_reject_constant)
+        return json.loads(text, parse_constant=_reject_constant,
+                          parse_float=lambda s: _finite(float(s), s), parse_int=lambda s: _finite(int(s), s))
     except json.JSONDecodeError as e:
         print(f'\nINVALID JSON: {path.name}')
         print(f'  Line: {e.lineno}\n  Column: {e.colno}\n  Error: {e.msg}\n  Context:')
@@ -259,25 +320,35 @@ def optional_json(path, default):
     return data
 
 
-def _write_atomic(path, text):
-    path = Path(path)
-    tmp = path.with_name(f'.{path.name}.{os.getpid()}.tmp')
+def write_outputs(outputs):
+    """Write {path: bytes}. All files are staged first, so a failure leaves the existing files untouched."""
+    staged = []
     try:
-        with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
-            f.write(text)
-        os.replace(tmp, path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
+        for path, data in outputs.items():
+            path = Path(path)
+            tmp = path.with_name(f'.{path.name}.{os.getpid()}.tmp')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            staged.append((tmp, path))
+            tmp.write_bytes(data)
+        for tmp, path in staged:
+            os.replace(tmp, path)
+    finally:
+        for tmp, _ in staged:
+            tmp.unlink(missing_ok=True)
+
+
+def _json_bytes(obj, **options):
+    """Strict JSON (no NaN/Infinity) as UTF-8 with a trailing newline; raises ValueError for unencodable data."""
+    return (json.dumps(obj, ensure_ascii=False, allow_nan=False, **options) + '\n').encode('utf-8')
 
 
 def save_json_atomic(path, obj):
-    _write_atomic(path, json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=False) + '\n')
+    write_outputs({path: _json_bytes(obj, indent=2, sort_keys=True)})
 
 
 def _script_json(obj):
     """JSON that is safe to inline in a <script> element."""
-    return (json.dumps(obj, ensure_ascii=False).replace('<', '\\u003c')
+    return (json.dumps(obj, ensure_ascii=False, allow_nan=False).replace('<', '\\u003c')
             .replace('\u2028', '\\u2028').replace('\u2029', '\\u2029'))
 
 
@@ -297,19 +368,37 @@ def _placeholder_url(text):
     return False
 
 
+def _printable(text):
+    """str(text) with unpaired surrogates escaped (\\ud800), so it can always be printed or written."""
+    return str(text).encode('utf-8', 'backslashreplace').decode('utf-8')
+
+
+def _json_path(path):
+    return _printable('/'.join(map(str, path))) or '(root)'
+
+
 def find_placeholders(record):
-    """Template placeholders left in a record, as 'at <json path>: ...' messages."""
+    """Unpublishable values: template placeholders, "__proto__" keys and text that is not valid Unicode.
+
+    Returns 'at <json path>: ...' messages.
+    """
     found = []
 
     def walk(value, path):
         if isinstance(value, dict):
             for k, v in value.items():
+                if k == '__proto__':  # an object literal in the page would turn it into a prototype
+                    found.append(f'at {_json_path(path + [k])}: the key "__proto__" is not allowed')
+                elif _printable(k) != k:
+                    found.append(f'at {_json_path(path + [k])}: key {k!r} is not valid Unicode (unpaired surrogate)')
                 walk(v, path + [k])
         elif isinstance(value, list):
             for i, v in enumerate(value):
                 walk(v, path + [i])
         elif isinstance(value, str):
-            where = '/'.join(map(str, path)) or '(root)'
+            where = _json_path(path)
+            if _printable(value) != value:
+                found.append(f'at {where}: text {_clip(value, width=80)!r} is not valid Unicode (unpaired surrogate)')
             if 'REPLACE_WITH' in value:
                 found.append(f'at {where}: placeholder text {_clip(value, width=80)!r}')
             elif _placeholder_url(value):
@@ -321,11 +410,14 @@ def find_placeholders(record):
     return found
 
 
-def record_problems(validator, record):
-    """Schema/format errors plus placeholder values, as printable messages."""
+def schema_errors(validator, record):
+    """Schema/format errors as printable messages."""
     errors = sorted(validator.iter_errors(record), key=lambda e: (tuple(str(p) for p in e.absolute_path), e.message))
-    problems = [f"at {'/'.join(map(str, e.absolute_path)) or '(root)'}: {_clip(e.message, width=300)}" for e in errors]
-    return problems + find_placeholders(record)
+    return [f'at {_json_path(e.absolute_path)}: {_printable(_clip(e.message, width=300))}' for e in errors]
+
+
+_RESERVED_STEMS = {'models'}  # dist/data/models.json holds all records
+_FILE_NAME = re.compile(r'^[A-Za-z0-9]+_[A-Za-z0-9]+_\d{4}$')  # <EventCamelCase><Year>_<Author>_<PubYear>
 
 
 def _num(value):
@@ -342,11 +434,25 @@ def _dict(value):
     return value if isinstance(value, dict) else {}
 
 
+def _dicts(value):
+    return [v for v in value if isinstance(v, dict)] if isinstance(value, list) else []
+
+
+def _has_license(model):
+    value = _dict(model.get('provenance')).get('license')
+    return isinstance(value, str) and bool(value.strip())
+
+
+# Fault-plane coordinates of reference_point.position, as fractions of (length, width).
+_POSITION_OFFSETS = {'top_left': (0.0, 0.0), 'top_center': (0.5, 0.0), 'center': (0.5, 0.5)}
+
+
 def consistency_warnings(model):
     """Non-fatal data-quality checks; returns short, factual messages."""
     out = []
+    model = _dict(model)
     event = _dict(model.get('event'))
-    segments = [s for s in model.get('fault_segments') or [] if isinstance(s, dict)]
+    segments = _dicts(model.get('fault_segments'))
     slips, total_area, has_dims = [], 0.0, False
     for index, seg in enumerate(segments, start=1):
         name = str(seg.get('segment_id') or f'segment {index}')
@@ -359,7 +465,15 @@ def consistency_warnings(model):
         for n, size, total, field in ((n_as, p_len, length, 'length_km'), (n_dd, p_wid, width, 'width_km')):
             if n and size is not None and total is not None and abs(n * size - total) > 0.02 * abs(total):
                 out.append(f'{name}: patch grid {n:g} × {_f(size, 3)} km = {_f(n * size)} km but {field} is {_f(total)} km')
-        patches = [p for p in seg.get('patches') or [] if isinstance(p, dict)]
+        ref = _dict(seg.get('reference_point'))
+        position, along, down = ref.get('position'), _num(ref.get('along_strike_km')), _num(ref.get('down_dip_km'))
+        fractions = _POSITION_OFFSETS.get(position) if isinstance(position, str) else None
+        if fractions and None not in (along, down, length, width):
+            x, y = fractions[0] * length, fractions[1] * width
+            if abs(along - x) > 0.01 * abs(length) or abs(down - y) > 0.01 * abs(width):
+                out.append(f'{name}: reference_point position {position} is at {_f(x)}/{_f(y)} km along strike/down dip '
+                           f'but along_strike_km/down_dip_km are {_f(along)}/{_f(down)} km')
+        patches = _dicts(seg.get('patches'))
         if not patches:
             continue
         if n_as and n_dd and n_as * n_dd != len(patches):
@@ -422,11 +536,9 @@ def consistency_warnings(model):
     origin_time = event.get('origin_time')
     if not (isinstance(origin_time, str) and origin_time.strip()):
         out.append('no origin_time: not matched automatically')
-    if not _coordinates(event) and not any(_coordinates({'hypocenter': _dict(s.get('reference_point'))}) for s in segments):
-        out.append('no hypocenter or reference-point coordinates: not shown on the map')
-    license_ = _dict(model.get('provenance')).get('license')
-    if not (isinstance(license_, str) and license_.strip()):
-        out.append('no license stated (provenance.license)')
+    if not _coordinates(event) and not any(_coordinates({'hypocenter': _dict(s.get('reference_point'))}) for s in segments) \
+            and not any(_coordinates({'hypocenter': p}) for s in segments for p in _dicts(s.get('patches'))):
+        out.append('no hypocenter, reference-point or patch coordinates: not shown on the map')
     return out
 
 
@@ -467,29 +579,39 @@ def main():
         return 1
 
     # Validate before matching, so every record's problems are reported in one run.
-    published, drafts = [], []
-    schema_errors = 0
+    published, drafts, unconventional = [], [], []
+    error_count = 0
     for filename, raw in input_models:
-        problems = record_problems(validator, raw)
+        errors = schema_errors(validator, raw)
+        problems = errors + find_placeholders(raw)
+        stem = Path(filename).stem
+        if stem.lower() in _RESERVED_STEMS:
+            problems.append(f'file name {filename!r} is reserved for the combined data/models.json; rename the file')
+        if not _FILE_NAME.match(stem):
+            unconventional.append(filename)
         if isinstance(raw, dict) and raw.get('status') == 'draft':
             drafts.append(filename)
-            notes = consistency_warnings(raw)
             print(f'\nDRAFT (validated, not published): {filename}'
                   + (f' ({len(problems)} problem(s) to fix before publishing)' if problems else ''))
             for no, problem in enumerate(problems, start=1):
                 print(f'  [{no}] {problem}')
-            for note in notes:
-                print(f'  - {note}')
+            # Consistency checks assume the types the schema guarantees.
+            for note in (['consistency checks skipped (record is not schema-valid)'] if errors
+                         else consistency_warnings(raw)):
+                print(f'  - {_printable(note)}')
         elif problems:
-            schema_errors += len(problems)
+            error_count += len(problems)
             print(f'\nINVALID RECORD: {filename} ({len(problems)} error(s))')
             for no, problem in enumerate(problems, start=1):
                 print(f'  [{no}] {problem}')
         else:
             published.append((filename, {k: v for k, v in raw.items() if not k.startswith('_browser_')}))
             print(f'OK: {filename}')
-    if schema_errors:
-        print(f'\nBUILD FAILED: {schema_errors} validation error(s) (schema, formats, placeholders). No new HTML generated.')
+    if unconventional:
+        print(f'\nNOTE: file name(s) not following <EventCamelCase><Year>_<Author>_<PubYear>.json: '
+              f'{", ".join(unconventional)}')
+    if error_count:
+        print(f'\nBUILD FAILED: {error_count} validation error(s) (schema, formats, placeholders). No new HTML generated.')
         print('Contributed source files have not been modified.')
         return 1
     if not published:
@@ -503,11 +625,14 @@ def main():
     except (MatchError, ValueError) as e:
         print(f'\nEVENT MATCHING NEEDS REVIEW: {e}')
         if isinstance(e, MatchError) and e.review:
-            save_json_atomic(REVIEW_PATH, {'review': e.review, 'instructions':
-                'Edit event_overrides.json (create it if necessary). Map a filename to an event key from possible_matches, or to "separate". Do not edit contributor JSON.'})
             for r in e.review:
                 print(f"  {r['file']}: matches={r['matches']}, possible={r['possible_matches']}")
-            print(f'Review details: {REVIEW_PATH}')
+            try:
+                save_json_atomic(REVIEW_PATH, {'review': e.review, 'instructions':
+                    'Edit event_overrides.json (create it if necessary). Map a filename to an event key from possible_matches, or to "separate". Do not edit contributor JSON.'})
+                print(f'Review details: {REVIEW_PATH}')
+            except (OSError, ValueError) as write_error:
+                print(f'Could not write {REVIEW_PATH.name}: {write_error}')
         print('No new HTML generated; no potentially incorrect earthquake merging performed.')
         return 1
     for note in match_notes:
@@ -525,6 +650,10 @@ def main():
             print(f"  {m['_browser_source_file']}:")
             for warning in m['_browser_warnings']:
                 print(f'    - {warning}')
+    unlicensed = [m['_browser_source_file'] for m in models if not _has_license(m)]
+    if unlicensed:  # the browser shows "License: not specified"; not a per-model data-quality warning
+        print(f'\nNOTE: no license stated (provenance.license) in {len(unlicensed)} published record(s): '
+              f'{", ".join(unlicensed)}')
 
     # Two distinct files may legitimately contain identical contributor model_id
     # values (e.g. two geometry alternatives from the same publication).
@@ -546,27 +675,28 @@ def main():
     if missing:
         print(f'BUILD FAILED: missing template placeholders {missing}')
         return 1
-    # The data goes in last, so placeholder-like text inside records is never replaced.
-    document = (template.replace('__BUILT_AT__', datetime.date.today().isoformat())
-                .replace('__MODEL_COUNT__', str(len(models)))
-                .replace('__MODELS_JSON__', _script_json(models)))
     public = [{k: v for k, v in m.items() if not k.startswith('_browser_')} for m in models]
     data_dir = DIST_PATH.parent / 'data'
+    # Render every output in memory first: if anything cannot be encoded, nothing is written.
     try:
-        data_dir.mkdir(exist_ok=True, parents=True)
-        written = {'models.json'}
-        for model, record in zip(models, public):
-            written.add(f"{model['_browser_id']}.json")
-            _write_atomic(data_dir / f"{model['_browser_id']}.json", json.dumps(record, indent=2, ensure_ascii=False) + '\n')
-        _write_atomic(data_dir / 'models.json', json.dumps(public, ensure_ascii=False) + '\n')
+        outputs = {data_dir / f"{m['_browser_id']}.json": _json_bytes(record, indent=2) for m, record in zip(models, public)}
+        outputs[data_dir / 'models.json'] = _json_bytes(public)
+        outputs[REGISTRY_PATH] = _json_bytes(pending_registry, indent=2, sort_keys=True)
+        # The data goes in last, so placeholder-like text inside records is never replaced.
+        outputs[DIST_PATH] = (template.replace('__BUILT_AT__', datetime.date.today().isoformat())
+                              .replace('__MODEL_COUNT__', str(len(models)))
+                              .replace('__MODELS_JSON__', _script_json(models))).encode('utf-8')
+    except ValueError as e:  # a non-finite number or text that is not valid Unicode
+        print(f'BUILD FAILED preparing output: {_printable(e)}. No output written.')
+        return 1
+    try:
+        write_outputs(outputs)
         for stale in data_dir.glob('*.json'):
-            if stale.name not in written:
+            if stale not in outputs:
                 stale.unlink()
-        save_json_atomic(REGISTRY_PATH, pending_registry)
-        _write_atomic(DIST_PATH, document)
         REVIEW_PATH.unlink(missing_ok=True)
-    except OSError as e:
-        print(f'BUILD FAILED writing output: {e}')
+    except (OSError, UnicodeError) as e:
+        print(f'BUILD FAILED writing output: {_printable(e)}')
         return 1
 
     print('\nBUILD SUCCESSFUL')

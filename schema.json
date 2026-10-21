@@ -262,13 +262,17 @@
               "along_strike_km": {
                 "type": "number",
                 "minimum": 0,
-                "description": "Optional along-strike fault-plane coordinate of the reference point (same frame as patches). Together with down_dip_km it defines the placement exactly and overrides position."
+                "description": "Optional along-strike fault-plane coordinate of the reference point (same frame as patches). Give it together with down_dip_km (both or neither); the pair defines the placement exactly and overrides position."
               },
               "down_dip_km": {
                 "type": "number",
                 "minimum": 0,
-                "description": "Optional down-dip fault-plane coordinate of the reference point, measured from the top edge (same frame as patches). Together with along_strike_km it defines the placement exactly and overrides position."
+                "description": "Optional down-dip fault-plane coordinate of the reference point, measured from the top edge (same frame as patches). Give it together with along_strike_km (both or neither); the pair defines the placement exactly and overrides position."
               }
+            },
+            "dependentRequired": {
+              "along_strike_km": ["down_dip_km"],
+              "down_dip_km": ["along_strike_km"]
             }
           },
           "patch_grid": {
@@ -394,7 +398,7 @@
         },
         "license": {
           "type": ["string", "null"],
-          "default": "CC-BY-4.0"
+          "description": "Licence of this record (e.g. 'CC-BY-4.0'). Leave null or omit when unknown; the browser then shows 'not specified'. Values digitized from published figures may carry the publisher's terms."
         },
         "source_file_url": {
           "type": ["string", "null"],

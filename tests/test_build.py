@@ -158,10 +158,42 @@ def test_override_separate_and_join():
     assert len({m['_browser_event_key'] for _, m in resolved}) == 2
     resolved, _, _ = build.group_models(models, empty_registry(), {'B.json': '2020-01-01_test-earthquake'})
     assert len({m['_browser_event_key'] for _, m in resolved}) == 1
-    # A file kept separate is never merged into, even by a perfect match.
+    # A file kept separate is never merged into automatically; even a perfect match goes to review.
     models.append(('C.json', make_record()))
-    resolved, _, _ = build.group_models(models, empty_registry(), {'A.json': 'separate', 'B.json': 'separate'})
+    with pytest.raises(build.MatchError) as info:
+        build.group_models(models, empty_registry(), {'A.json': 'separate', 'B.json': 'separate'})
+    [entry] = info.value.review
+    assert entry['file'] == 'C.json' and entry['matches'] == [] and len(entry['possible_matches']) == 2
+    resolved, _, _ = build.group_models(models, empty_registry(),
+                                        {'A.json': 'separate', 'B.json': 'separate', 'C.json': 'separate'})
     assert len({m['_browser_event_key'] for _, m in resolved}) == 3
+
+
+def test_separate_override_leaves_a_shared_event_open():
+    a, b = make_record(), make_record(time='2020-01-01T00:00:20Z', lat=38.05)
+    _, registry, _ = build.group_models([('A.json', a), ('B.json', b)], empty_registry(), {})
+    key = '2020-01-01_test-earthquake'
+    assert set(registry['assignments'].values()) == {key}
+    # B is split off. A keeps the shared event, which still takes new models ("matches"); C's resemblance
+    # to B's separate event needs a decision. The result does not depend on the registry history.
+    models = [('A.json', a), ('B.json', b), ('C.json', make_record(time='2020-01-01T00:00:05Z'))]
+    for start in (registry, empty_registry()):
+        with pytest.raises(build.MatchError) as info:
+            build.group_models(models, copy.deepcopy(start), {'B.json': 'separate'})
+        [entry] = info.value.review
+        assert entry['matches'] == [key] and entry['possible_matches'] == [f'{key}-7f8f16']
+    _, final, _ = build.group_models(models, copy.deepcopy(registry), {'B.json': 'separate', 'C.json': key})
+    assert final['assignments'] == {'A.json': key, 'B.json': f'{key}-7f8f16', 'C.json': key}
+
+
+def test_one_match_plus_a_possible_match_needs_review():
+    a, b = make_record(), make_record(name='Other quake', lat=38.9)       # ~100 km apart
+    _, registry, _ = build.group_models([('A.json', a), ('B.json', b)], empty_registry(), {'B.json': 'separate'})
+    c = make_record(lat=38.1)                                             # ~11 km from A, ~89 km from B
+    with pytest.raises(build.MatchError) as info:
+        build.group_models([('A.json', a), ('B.json', b), ('C.json', c)], registry, {})
+    assert info.value.review == [{'file': 'C.json', 'matches': ['2020-01-01_test-earthquake'],
+                                  'possible_matches': ['2020-01-01_other-quake']}]
 
 
 def test_override_unknown_key_and_unknown_file():
@@ -204,6 +236,69 @@ def test_registry_keys_are_stable():
     assert third == again
 
 
+@pytest.mark.parametrize('changes', [{}, dict(time=None), dict(lat=None, lon=None)])
+def test_renamed_record_keeps_its_event_key(changes):
+    """Also for undated records (never matched) and records without coordinates (only 'possible')."""
+    record, other = make_record(**changes), ('Other.json', make_record(name='Other quake', time='2021-01-01T00:00:00Z'))
+    _, registry, _ = build.group_models([('A.json', record), other], empty_registry(), {})
+    _, again, notes = build.group_models([('A_renamed.json', record), other], copy.deepcopy(registry), {})
+    assert again['assignments'] == {'A_renamed.json': registry['assignments']['A.json'],
+                                    'Other.json': registry['assignments']['Other.json']}
+    assert again['events'] == registry['events'] and notes == []
+
+
+def test_orphaned_events_are_pruned():
+    models = [('A.json', make_record()), ('B.json', make_record(time='2021-01-01T00:00:00Z'))]
+    _, registry, _ = build.group_models(models, empty_registry(), {})
+    _, pending, _ = build.group_models(models[:1], copy.deepcopy(registry), {})
+    assert pending['assignments'] == {'A.json': '2020-01-01_test-earthquake'}
+    assert list(pending['events']) == ['2020-01-01_test-earthquake']
+
+
+def test_registry_event_data_follow_the_records():
+    undated = make_record(name='Athens quake', time=None, lat=None, lon=None)
+    _, registry, _ = build.group_models([('A.json', undated)], empty_registry(), {})
+    key = 'undated_athens-quake'
+    assert registry['assignments'] == {'A.json': key}
+    # The contributor adds the origin time: the key stays, the event data follow the record.
+    dated = make_record(name='Athens quake', lat=None, lon=None)
+    _, registry, notes = build.group_models([('A.json', dated)], registry, {})
+    assert registry['assignments'] == {'A.json': key}
+    assert registry['events'][key]['origin_time_utc'] == '2020-01-01T00:00:00Z'
+    assert notes == [f"registry event '{key}' updated from A.json: origin_time_utc None -> '2020-01-01T00:00:00Z'"]
+    # A second model of the same earthquake is never split off silently ...
+    second = ('B.json', make_record(name='Athens earthquake (other study)'))
+    with pytest.raises(build.MatchError) as info:
+        build.group_models([('A.json', dated), second], copy.deepcopy(registry), {})
+    assert info.value.review == [{'file': 'B.json', 'matches': [], 'possible_matches': [key]}]
+    # ... and joins automatically once both records have coordinates; the event name is the current one.
+    resolved, again, _ = build.group_models([('A.json', make_record(name='Athens earthquake')), second],
+                                            copy.deepcopy(registry), {})
+    assert again['assignments'] == {'A.json': key, 'B.json': key}
+    assert again['events'][key]['name'] == 'Athens earthquake'
+    assert {m['_browser_event_name'] for _, m in resolved} == {'Athens earthquake'}
+
+
+def test_registry_changes_that_need_attention_are_noted():
+    models = [('A.json', make_record()), ('B.json', make_record(time='2020-01-01T00:00:30Z')),
+              ('C.json', make_record(name='Other quake', lat=35.0, lon=26.0, time='2020-01-01T00:00:40Z'))]
+    _, registry, _ = build.group_models(models, empty_registry(), {})
+    key, other = '2020-01-01_test-earthquake', '2020-01-01_other-quake'
+    assert registry['assignments'] == {'A.json': key, 'B.json': key, 'C.json': other}
+    # B's date is corrected by a year: it keeps its event, with a note.
+    changed = [models[0], ('B.json', make_record(time='2021-01-01T00:00:30Z')), models[2]]
+    _, again, notes = build.group_models(changed, copy.deepcopy(registry), {})
+    assert again['assignments'] == registry['assignments']
+    assert notes == [f"B.json: kept registry event '{key}' although the record no longer matches A.json "
+                     f"(31622430 s apart); add an event_overrides.json entry if this is wrong."]
+    # C's location is corrected onto A's: both events keep their files, and the resemblance is reported.
+    changed = [models[0], models[1], ('C.json', make_record(name='Other quake', time='2020-01-01T00:00:40Z'))]
+    _, again, notes = build.group_models(changed, copy.deepcopy(registry), {})
+    assert again['assignments'] == registry['assignments']
+    assert len(notes) == 1 and notes[0].startswith(f"registry event '{other}' updated from C.json: latitude 35.0 -> 38.0")
+    assert f"it now resembles ['{key}']" in notes[0]
+
+
 # ====== Validation ======
 
 
@@ -219,6 +314,90 @@ def test_placeholders_are_rejected(site, capsys):
     out = capsys.readouterr().out
     assert 'at reference/title' in out and 'at reference/url' in out and 'at reference/authors/1' in out
     assert not site.dist.exists() and not site.registry.exists()
+
+
+@pytest.mark.parametrize('text, flagged', [
+    ('see https://www.example.com/data', True), ('http://example.net', True),
+    ('https://user@sub.example.org:8080/x', True), ('https://example.community/x', False), ('An Example of slip', False),
+])
+def test_placeholder_hosts(text, flagged):
+    record = make_record()
+    record['reference']['notes'] = text
+    assert bool(build.find_placeholders(record)) == flagged
+
+
+def test_proto_keys_are_rejected(site, capsys):
+    record = make_record()
+    record['reference']['__proto__'] = {'year': 1900}
+    record['model_variant'] = {'__proto__': {'phase': 'interseismic'}}
+    assert sorted(p.split(':')[0] for p in build.find_placeholders(record)) == [
+        'at model_variant/__proto__', 'at reference/__proto__']
+    site.add('A.json', record)
+    assert build.main() == 1
+    assert 'at reference/__proto__: the key "__proto__" is not allowed' in capsys.readouterr().out
+    assert not site.dist.exists()
+
+
+def test_invalid_unicode_is_a_validation_error(site, capsys):
+    record = make_record()
+    record['event']['region'] = 'Lake \ud800'
+    record['reference']['\udc80key'] = 'value'
+    (build.MODELS_DIR / 'A.json').write_text(json.dumps(record), encoding='utf-8')  # surrogates as \u escapes
+    assert build.main() == 1
+    out = capsys.readouterr().out
+    assert "at event/region: text 'Lake \\ud800' is not valid Unicode" in out
+    assert 'at reference/\\udc80key: key' in out
+    assert not site.dist.exists() and not site.registry.exists()
+
+
+@pytest.mark.parametrize('literal', ['1e999', '-1e999', '1' + '0' * 400])
+def test_non_finite_numbers_are_rejected(site, capsys, literal):
+    text = json.dumps(make_record(), indent=2).replace('"max_slip_m": 1.0', f'"max_slip_m": {literal}')
+    (build.MODELS_DIR / 'A.json').write_text(text, encoding='utf-8')
+    assert build.main() == 1
+    out = capsys.readouterr().out
+    assert 'INVALID JSON: A.json' in out and 'not a finite number' in out
+    assert not site.dist.exists()
+
+
+def test_output_is_strict_json():
+    for value in (math.inf, math.nan):
+        with pytest.raises(ValueError):
+            build._script_json([{'x': value}])
+        with pytest.raises(ValueError):
+            build._json_bytes({'x': value})
+
+
+def test_reserved_and_unconventional_file_names(site, capsys):
+    site.add('Test2020_Tester_2021.json', make_record())
+    site.add('models.json', make_record(time='2021-01-01T00:00:00Z'))
+    assert build.main() == 1
+    out = capsys.readouterr().out
+    assert "file name 'models.json' is reserved" in out
+    assert 'NOTE: file name(s) not following <EventCamelCase><Year>_<Author>_<PubYear>.json: models.json\n' in out
+    assert not site.dist.exists()
+    (build.MODELS_DIR / 'models.json').rename(build.MODELS_DIR / 'Other2021_Tester_2021.json')
+    assert build.main() == 0
+    assert 'not following' not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('mutate', [
+    lambda r: r['event'].update(hypocenter='TBD'),
+    lambda r: r['event'].update(hypocenter=[38.0, 23.0]),
+    lambda r: r.update(fault_segments=1),
+    lambda r: r['fault_segments'][0].update(patches='TODO', reference_point='TBD', patch_grid=[2, 2]),
+    lambda r: r['fault_segments'][0]['reference_point'].update(position=['top_left'], along_strike_km='0'),
+])
+def test_malformed_draft_does_not_break_the_build(site, capsys, mutate):
+    draft = make_record(name='Draft quake', time='2010-01-01T00:00:00Z')
+    draft['status'] = 'draft'
+    mutate(draft)
+    build.consistency_warnings(draft)  # the checks are type-safe on their own as well
+    site.add('A.json', make_record())
+    site.add('Draft.json', draft)
+    assert build.main() == 0
+    assert 'consistency checks skipped (record is not schema-valid)' in capsys.readouterr().out
+    assert not (site.data / 'Draft.json').exists()
 
 
 def test_drafts_are_validated_but_not_published(site, capsys):
@@ -286,8 +465,61 @@ def test_consistency_checks_catch_inconsistent_metadata():
     joined = '\n'.join(build.consistency_warnings(record))
     for expected in ('duplicate patch position', 'down-dip patch centres span', 'patch depths differ',
                      'summary max_slip_m 2 m', 'summary mean_slip_m 0.2 m', 'rupture_area_km2 50',
-                     'implies Mw', 'no license'):
+                     'implies Mw'):
         assert expected in joined
+    assert 'license' not in joined  # reported once per build, not per model
+
+
+def test_missing_license_is_one_build_note(site, capsys):
+    unlicensed = make_record(time='2021-01-01T00:00:00Z')
+    unlicensed['provenance']['license'] = None
+    site.add('A.json', make_record())
+    site.add('B.json', unlicensed)
+    assert build.main() == 0
+    assert 'NOTE: no license stated (provenance.license) in 1 published record(s): B.json' in capsys.readouterr().out
+    assert [m['_browser_warnings'] for m in json.loads(site.blob())] == [[], []]
+
+
+def test_record_without_any_coordinates_is_not_shown_on_the_map():
+    warning = 'no hypocenter, reference-point or patch coordinates: not shown on the map'
+
+    def unanchored():
+        record = make_record(lat=None, lon=None)
+        for patch in record['fault_segments'][0].get('patches') or []:
+            patch.update(latitude=None, longitude=None)
+        return record
+
+    assert warning in build.consistency_warnings(unanchored())
+    record = unanchored()
+    record['fault_segments'][0]['reference_point'].update(latitude=38.0, longitude=23.0)
+    assert warning not in build.consistency_warnings(record)
+    record = unanchored()
+    patches = record['fault_segments'][0].get('patches')
+    assert patches
+    patches[0].update(latitude=38.0, longitude=23.0)
+    assert warning not in build.consistency_warnings(record)
+
+
+@pytest.mark.parametrize('position, along, down, warned', [
+    ('top_left', 0.0, 0.0, False), ('top_left', 1.0, 0.0, True),
+    ('top_center', 1.0, 0.0, False), ('top_center', 1.0, 1.0, True),
+    ('center', 1.0, 1.0, False), ('center', 1.01, 0.99, False), ('center', 1.0, 0.0, True),
+    ('hypocenter', 0.3, 1.7, False), ('unknown', 2.0, 2.0, False),
+])
+def test_reference_point_offsets_must_agree_with_position(position, along, down, warned):
+    record = make_record()  # 2 km × 2 km plane: tolerance 0.02 km
+    record['fault_segments'][0]['reference_point'].update(position=position, along_strike_km=along, down_dip_km=down)
+    warnings = build.consistency_warnings(record)
+    assert any(w.startswith('seg1: reference_point position') for w in warnings) == warned
+
+
+def test_reference_point_offsets_come_in_pairs(site, capsys):
+    record = make_record()
+    record['fault_segments'][0]['reference_point']['down_dip_km'] = 1.0
+    site.add('A.json', record)
+    assert build.main() == 1
+    assert ("at fault_segments/0/reference_point: 'along_strike_km' is a dependency of 'down_dip_km'"
+            in capsys.readouterr().out)
 
 
 # ====== Output ======
@@ -326,6 +558,25 @@ def test_outputs_and_determinism(site):
     assert json.loads((site.data / 'A.json').read_text()) == public[0]
 
 
+def test_output_is_rendered_before_anything_is_written(site, monkeypatch, capsys):
+    site.add('A.json', make_record())
+    assert build.main() == 0
+    before = {p: p.read_bytes() for p in (site.dist, site.registry, *site.data.iterdir())}
+    site.add('B.json', make_record(time='2021-01-01T00:00:00Z'))
+    group_models = build.group_models
+
+    def unwritable(*args):  # the last record's page data cannot be written as JSON
+        resolved, pending, notes = group_models(*args)
+        resolved[-1][1]['_browser_event_name'] = math.inf
+        return resolved, pending, notes
+
+    monkeypatch.setattr(build, 'group_models', unwritable)
+    assert build.main() == 1
+    assert 'BUILD FAILED preparing output' in capsys.readouterr().out
+    assert {p: p.read_bytes() for p in before} == before
+    assert sorted(p.name for p in site.dist.parent.rglob('*')) == ['A.json', 'data', 'index.html', 'models.json']
+
+
 def test_real_repository_builds(tmp_path, monkeypatch, capsys):
     """Smoke test: the committed data, schema and template build cleanly (outputs go to tmp)."""
     for name in ('event_registry.json', 'event_overrides.json'):
@@ -337,7 +588,7 @@ def test_real_repository_builds(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(build, 'REVIEW_PATH', tmp_path / 'event_review.json')
     assert build.main() == 0, capsys.readouterr().out
     files = sorted((ROOT / 'data' / 'models').glob('*.json'))
-    published = [f for f in files if json.loads(f.read_text(encoding='utf-8')).get('status') != 'draft']
+    published = [f for f in files if json.loads(f.read_text(encoding='utf-8-sig')).get('status') != 'draft']
     public = json.loads((tmp_path / 'dist' / 'data' / 'models.json').read_text(encoding='utf-8'))
     assert len(public) == len(published) > 0
     html = (tmp_path / 'dist' / 'index.html').read_text(encoding='utf-8')
