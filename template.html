@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Greece Finite-Fault Slip Model Geobrowser</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <style>
   :root {
     --ink: #1b1f24;
@@ -14,11 +14,15 @@
     --panel: #ffffff;
     --accent: #8a1f1f;
     --accent-light: #b8433a;
+    --focus: #1a5fb4;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--ink); background: var(--bg); }
+  body { display: flex; flex-direction: column; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
   header {
+    flex: none;
     padding: 14px 20px;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
@@ -34,13 +38,11 @@
   header .stats b { color: var(--ink); }
 
   #layout {
+    flex: 1 1 auto;
+    min-height: 0;
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr) 340px;
-    height: calc(100% - 62px);
-  }
-  @media (max-width: 980px) {
-    #layout { grid-template-columns: 1fr; height: auto; }
-    #map { height: 480px; }
+    grid-template-rows: minmax(0, 1fr);
   }
 
   #sidebar {
@@ -49,17 +51,22 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
   }
-  #filters { padding: 12px; border-bottom: 1px solid var(--line); overflow-y: auto; max-height: 52vh; }
+  #filters { padding: 12px; border-bottom: 1px solid var(--line); overflow-y: auto; max-height: 52vh; flex: none; }
   #filters input[type="text"] {
     width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; margin-bottom: 10px;
   }
-  #filters fieldset { border: none; padding: 0; margin: 0 0 8px 0; }
+  #filters fieldset { border: none; padding: 0; margin: 0 0 8px 0; min-width: 0; }
   #filters legend { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); padding: 0; margin-bottom: 4px; }
   #filters label { font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; margin-bottom: 4px; }
+  .all-none { text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  .link-btn { font: inherit; font-size: 11px; color: var(--accent); background: none; border: none; padding: 0 1px; cursor: pointer; text-decoration: underline; }
+  .link-btn:hover { color: var(--accent-light); }
 
   .slider-block { margin-bottom: 12px; }
   .slider-block .sb-title { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+  .slider-block .sb-hint { text-transform: none; letter-spacing: 0; }
   .dual-slider { position: relative; height: 20px; }
   .dual-slider .ds-track { position: absolute; top: 8px; left: 0; right: 0; height: 4px; background: var(--line); border-radius: 2px; }
   .dual-slider .ds-fill { position: absolute; top: 8px; height: 4px; background: var(--accent); border-radius: 2px; }
@@ -78,18 +85,31 @@
     pointer-events: auto; width: 15px; height: 15px; border-radius: 50%; background: var(--accent);
     border: 2px solid #fff; box-shadow: 0 0 2px rgba(0,0,0,.5); cursor: pointer;
   }
+  .dual-slider input[type="range"]:focus-visible { outline: none; }
+  .dual-slider input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--focus); }
+  .dual-slider input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--focus); }
   .ds-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-  #modelList { flex: 1; overflow-y: auto; }
-  .model-row { padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  #modelList { flex: 1; overflow-y: auto; min-height: 0; }
+  .model-row {
+    display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: var(--panel);
+    padding: 10px 12px; border: none; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; cursor: pointer;
+  }
   .model-row:hover { background: #f2f3f5; }
-  .model-row.selected { background: #fbeceb; border-left: 3px solid var(--accent); }
-  .model-row .name { font-size: 13.5px; font-weight: 600; }
-  .model-row .citation { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .model-row:focus-visible { outline-offset: -3px; }
+  .model-row.selected { background: #fbeceb; border-left-color: var(--accent); }
+  .model-row .name { display: block; font-size: 13.5px; font-weight: 600; }
+  .model-row .citation { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .model-row.in-group { padding-left: 24px; }
+  .model-row.in-group .name { font-size: 13px; }
+  .event-head { padding: 9px 12px 5px; background: #f4f5f7; border-bottom: 1px solid var(--line); }
+  .event-head .ev-name { display: block; font-size: 13.5px; font-weight: 650; }
+  .event-head .ev-meta { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .list-empty { padding: 18px 12px; font-size: 13px; color: var(--muted); }
   .lg-stars { display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; padding: 2px 0; }
   .lg-star { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; color: var(--muted); min-width: 31px; }
 
-  #map { height: 100%; }
+  #map { height: 100%; min-height: 0; }
 
   /* --- custom Leaflet-style controls (match native leaflet-bar look) --- */
   .gb-control {
@@ -99,7 +119,7 @@
     font-size: 12px;
   }
   .gb-btn {
-    display: block; width: 30px; height: 30px; line-height: 30px; text-align: center;
+    display: block; width: 30px; height: 30px; line-height: 30px; text-align: center; padding: 0;
     cursor: pointer; background: var(--panel); border: none; border-bottom: 1px solid var(--line);
     font-size: 15px; color: var(--ink);
   }
@@ -107,41 +127,94 @@
   .gb-btn:hover { background: #f2f3f5; }
   .gb-btn.active { background: var(--accent); color: #fff; }
 
-  #legendControl { padding: 8px 10px; min-width: 168px; }
+  #legendControl { padding: 8px 10px; }
+  #legendControl details[open] { min-width: 148px; }
   #legendControl .lg-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 5px; }
   #legendControl .lg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
   #legendControl .lg-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
   #legendControl .lg-line { display: flex; align-items: center; gap: 4px; margin: 4px 0; }
   #legendControl hr { border: none; border-top: 1px solid var(--line); margin: 6px 0; }
+  #legendControl summary { cursor: pointer; font-size: 11px; font-weight: 600; color: var(--ink); list-style-position: inside; }
+  #legendControl details[open] summary { margin-bottom: 6px; }
 
-  #measureLabel {
-    position: absolute; background: rgba(27,31,36,.85); color: #fff; font-size: 11.5px;
-    padding: 2px 6px; border-radius: 4px; pointer-events: none; transform: translate(-50%, -130%);
+  .leaflet-tooltip.measure-tooltip {
+    background: rgba(27,31,36,.85); color: #fff; border: none; box-shadow: none; font-size: 11.5px; padding: 2px 6px; border-radius: 4px;
   }
+  .leaflet-tooltip.measure-tooltip::before { display: none; }
+  .leaflet-container a.ep-link { color: var(--accent); }
+  .event-popup .ep-title { font-weight: 650; font-size: 13px; margin-bottom: 6px; }
+  .event-popup .ep-hint { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .event-popup .ep-btn {
+    display: block; width: 100%; text-align: left; font: inherit; font-size: 12.5px; margin: 0 0 4px; padding: 6px 8px;
+    border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); cursor: pointer;
+  }
+  .event-popup .ep-btn:hover { background: #f2f3f5; }
+  .event-popup .ep-btn small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
 
-  #detail { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 16px; min-width: 0; }
+  #detail { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 16px; min-width: 0; min-height: 0; }
   #detail h2 { font-size: 15.5px; margin: 0 0 2px 0; }
-  #detail .authors { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+  #detail .authors { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  #detail .ref-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   #detail table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 14px; }
-  #detail table td { padding: 3px 0; vertical-align: top; }
-  #detail table td.k { color: var(--muted); width: 42%; }
+  #detail table td { padding: 3px 0; vertical-align: top; overflow-wrap: anywhere; }
+  #detail table td.k { color: var(--muted); width: 42%; padding-right: 6px; overflow-wrap: normal; }
   #detail .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 14px 0 6px 0; }
   #detail .btn {
-    display: inline-block; font-size: 12.5px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
+    display: inline-block; font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line);
     background: #fff; cursor: pointer; text-decoration: none; color: var(--ink); margin-right: 6px; margin-bottom: 6px;
   }
   #detail .btn:hover { background: #f2f3f5; }
   #detail .empty { color: var(--muted); font-size: 13px; padding-top: 40px; text-align: center; }
+  #detail .empty a { color: var(--accent); }
+  #detail .muted { color: var(--muted); }
+  #detail details { font-size: 12.5px; margin: 6px 0 10px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+  #detail details summary { cursor: pointer; font-weight: 600; }
+  #detail details ul { margin: 6px 0 2px; padding-left: 18px; }
+  #detail details li { margin-bottom: 3px; }
+  #detail details p { margin: 6px 0 2px; white-space: pre-line; }
+  #detail details.dq { border-color: #e7c98f; background: #fffaf0; }
+  .dq-none { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+  .badge { display: inline-block; font-size: 11.5px; line-height: 1.3; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: #f4f5f7; color: var(--ink); }
+  .badge.digitized { background: #fff4e0; border-color: #e7c98f; color: #6b4300; }
+  .badge.authored { background: #e8f4ec; border-color: #a9d3b6; color: #1f5631; }
+  .badge.phase { background: #eef2fb; border-color: #b9c7e8; color: #22396b; }
+  .flag { display: inline-block; font-size: 10.5px; padding: 0 6px; border-radius: 999px; background: #fff4e0; border: 1px solid #e7c98f; color: #6b4300; margin-left: 4px; vertical-align: 1px; }
+  .geo-notes { font-size: 12px; margin: 4px 0 6px; padding-left: 18px; }
+  .geo-notes li { margin-bottom: 4px; }
+  .geo-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; margin-bottom: 6px; }
+  .cite-block { font-size: 12px; }
+  .cite-head { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 4px; color: var(--muted); }
+  .cite-block pre {
+    margin: 0 0 8px; padding: 7px 8px; background: #f4f5f7; border: 1px solid var(--line); border-radius: 5px;
+    font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto;
+  }
+  .btn-mini { font: inherit; font-size: 11.5px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); cursor: pointer; }
+  .btn-mini:hover { background: #f2f3f5; }
+
   #patchCanvasWrap { width: 100%; min-width: 0; }
   .slip-segment { min-width: 0; margin: 10px 0 16px; }
   .slip-segment-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 12px; font-weight: 600; }
-  .slip-expand, .slip-tool { font: inherit; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); padding: 5px 8px; cursor: pointer; }
+  .slip-expand, .slip-tool { white-space: nowrap; font: inherit; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); padding: 5px 8px; cursor: pointer; }
   .slip-expand:hover, .slip-tool:hover { background: #f2f3f5; }
-  .slip-overview-wrap { display: flex; justify-content: center; align-items: center; width: 100%; min-width: 0; }
+  .slip-plot { display: grid; grid-template-columns: 34px auto; grid-template-rows: auto auto; column-gap: 4px; justify-content: center; }
+  .axis-y { grid-column: 1; grid-row: 1; position: relative; font-size: 10px; color: var(--muted); }
+  .axis-y .ax-min, .axis-y .ax-max { position: absolute; right: 0; line-height: 1; }
+  .axis-y .ax-min { top: 0; }
+  .axis-y .ax-max { bottom: 0; }
+  .axis-y .ax-cap { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; white-space: nowrap; line-height: 1; }
+  .axis-y .ax-arrow { text-orientation: upright; }
+  .slip-overview-wrap { grid-column: 2; grid-row: 1; min-width: 0; }
+  .axis-x { grid-column: 2; grid-row: 2; display: flex; justify-content: space-between; gap: 4px; font-size: 10px; color: var(--muted); margin-top: 3px; min-width: 0; }
+  .axis-x .ax-cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .axis-x .ax-cap-y { display: none; }
+  .slip-segment.compact-y .axis-y .ax-cap { display: none; }
+  .slip-segment.compact-y .axis-x .ax-cap-y { display: inline; }
   .slip-overview { display: block; width: auto; height: auto; max-width: 100%; max-height: min(45vh, 440px); border: 1px solid var(--line); image-rendering: pixelated; }
   .slip-key { display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 8px; }
   .slip-key-gradient { width: min(170px, 56%); height: 9px; background: linear-gradient(to right, rgb(255,245,204), rgb(253,174,97), rgb(178,24,43), rgb(103,0,13)); }
   .schematic-note { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 6px; text-align: center; }
+  .grid-gaps { font-size: 11px; color: var(--muted); text-align: center; margin-top: 4px; }
 
   /* Fullscreen viewer: raster cells are never interpolated or smoothed. */
   #slipModal[hidden] { display: none; }
@@ -164,7 +237,19 @@
 
   .style-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 
-  footer { padding: 6px 20px; font-size: 11px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--line); }
+  footer { flex: none; padding: 6px 20px; font-size: 11px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--line); }
+
+  /* Single-column fallback: the page scrolls, the map keeps a fixed height. */
+  @media (max-width: 980px) {
+    html, body { height: auto; }
+    #layout { flex: none; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+    #sidebar { border-right: none; overflow: visible; }
+    #filters { max-height: none; }
+    #modelList { flex: none; max-height: 60vh; border-bottom: 1px solid var(--line); }
+    #map { height: 480px; }
+    #detail { border-left: none; border-top: 1px solid var(--line); overflow: visible; }
+    header .stats { text-align: left; }
+  }
 </style>
 </head>
 <body>
@@ -174,50 +259,64 @@
     <h1>Greece Finite-Fault Slip Models</h1>
     <div class="sub">A FAIR-aligned, community-compiled repository of published coseismic &amp; postseismic slip models &middot; Vavlas &amp; Bonatis, <em>(in prep.)</em></div>
   </div>
-  <div class="stats" id="statsBox"></div>
+  <div class="stats" id="statsBox" aria-live="polite"></div>
 </header>
 
 <div id="layout">
   <div id="sidebar">
     <div id="filters">
-      <input type="text" id="searchBox" placeholder="Search event name or author..." />
+      <input type="text" id="searchBox" placeholder="Search event, author, region, DOI..." aria-label="Search models (event, author, region, tectonic setting, title, journal, DOI, model ID)" />
 
       <div class="slider-block">
-        <div class="sb-title">Magnitude</div>
+        <div class="sb-title" id="magTitle">Magnitude</div>
         <div class="dual-slider">
           <div class="ds-track"></div>
           <div class="ds-fill" id="magFill"></div>
-          <input type="range" id="magMinSlider" />
-          <input type="range" id="magMaxSlider" />
+          <input type="range" id="magMinSlider" aria-label="Minimum magnitude" />
+          <input type="range" id="magMaxSlider" aria-label="Maximum magnitude" />
         </div>
         <div class="ds-labels"><span id="magMinLabel"></span><span id="magMaxLabel"></span></div>
       </div>
 
       <div class="slider-block">
-        <div class="sb-title">Year</div>
+        <div class="sb-title" title="From event.origin_time; models without an origin time are always shown">Event year</div>
         <div class="dual-slider">
           <div class="ds-track"></div>
-          <div class="ds-fill" id="yearFill"></div>
-          <input type="range" id="yearMinSlider" />
-          <input type="range" id="yearMaxSlider" />
+          <div class="ds-fill" id="eventYearFill"></div>
+          <input type="range" id="eventYearMinSlider" aria-label="Earliest event year" />
+          <input type="range" id="eventYearMaxSlider" aria-label="Latest event year" />
         </div>
-        <div class="ds-labels"><span id="yearMinLabel"></span><span id="yearMaxLabel"></span></div>
+        <div class="ds-labels"><span id="eventYearMinLabel"></span><span id="eventYearMaxLabel"></span></div>
+      </div>
+
+      <div class="slider-block">
+        <div class="sb-title" title="From reference.year; models without a publication year are always shown">Publication year</div>
+        <div class="dual-slider">
+          <div class="ds-track"></div>
+          <div class="ds-fill" id="pubYearFill"></div>
+          <input type="range" id="pubYearMinSlider" aria-label="Earliest publication year" />
+          <input type="range" id="pubYearMaxSlider" aria-label="Latest publication year" />
+        </div>
+        <div class="ds-labels"><span id="pubYearMinLabel"></span><span id="pubYearMaxLabel"></span></div>
       </div>
 
       <fieldset id="styleFilter">
-        <legend>Faulting style</legend>
+        <legend>Faulting style <span class="all-none"><button type="button" class="link-btn" data-filter-set="style" data-filter-value="all" aria-label="Select all faulting styles">all</button> / <button type="button" class="link-btn" data-filter-set="style" data-filter-value="none" aria-label="Clear all faulting styles">none</button></span></legend>
       </fieldset>
       <fieldset id="dataFilter">
-        <legend>Data type</legend>
+        <legend>Data type <span class="all-none"><button type="button" class="link-btn" data-filter-set="dtype" data-filter-value="all" aria-label="Select all data types">all</button> / <button type="button" class="link-btn" data-filter-set="dtype" data-filter-value="none" aria-label="Clear all data types">none</button></span></legend>
       </fieldset>
     </div>
-    <div id="modelList"></div>
+    <div id="modelList" aria-label="Slip models"></div>
   </div>
 
-  <div id="map"></div>
+  <div id="map" role="region" aria-label="Map of slip models"></div>
 
   <div id="detail">
-    <div class="empty" id="detailEmpty">Select a model from the list or map to see details.</div>
+    <div class="empty" id="detailEmpty">
+      Select a model from the list or map to see details.<br/><br/>
+      <a href="data/models.json">All records (JSON)</a>
+    </div>
     <div id="detailContent" style="display:none;"></div>
   </div>
 </div>
@@ -243,14 +342,14 @@
     </div>
     <div class="slip-dialog-foot">
       <div id="slipViewerLegend" class="slip-key"></div>
-      <div>Wheel or +/−: zoom · Drag: pan · Hover: patch values · Esc: close</div>
+      <div>Left → right: along strike · top → bottom: down dip · hatched: no patches · Wheel or +/−: zoom · Drag: pan · Hover: patch values · Esc: close</div>
     </div>
   </div>
 </div>
 
 <footer id="footerNote"></footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 const MODELS = __MODELS_JSON__;
 const BUILT_AT = "__BUILT_AT__";
@@ -265,28 +364,100 @@ const STYLE_COLORS = {
   "unknown": "#7f8c8d"
 };
 const FALLBACK_COLOR = "#7f8c8d";
+const NOT_STATED = "(not stated)";
+const SEISMICITY_LABEL = "Recent seismicity (live, 90 d, M2.5+)";
+
+const DATA_ORIGIN_LABELS = {
+  "author_supplied": "Author-supplied values",
+  "srcmod": "From SRCMOD",
+  "digitized_figure": "Digitized from figure",
+  "digitized_table": "Transcribed from table",
+  "derived": "Derived from published values",
+  "other": "Other data origin"
+};
+
+// The build guarantees these keys; keep the page usable with older builds that lack them.
+MODELS.forEach((m, i) => {
+  if (!m._browser_id) m._browser_id = String(m.model_id || `model-${i + 1}`);
+  if (!m._browser_event_key) m._browser_event_key = (m.event && m.event.event_id) || m._browser_id;
+  if (!Array.isArray(m._browser_warnings)) m._browser_warnings = [];
+});
+const MODEL_BY_ID = new Map(MODELS.map(m => [m._browser_id, m]));
 
 // Every modeled earthquake is a star; star diameter varies continuously with magnitude.
 // Fixed, linear diameter scaling shared between the map and the legend.
 function starSizePx(magnitude) {
-  return Math.max(12, 6 + Number(magnitude) * 4.2);
+  const mag = Number(magnitude);
+  return Math.max(12, 6 + (Number.isFinite(mag) ? mag : 0) * 4.2);
 }
 
 let selectedId = null;
 let eventLayer = null;
 let faultLayer = null;
+let slipLayer = null;
+let showSlipOnMap = true;
 let seismicityLayer = L.layerGroup();
 let magMinVal = null, magMaxVal = null;
-let yearMinVal = null, yearMaxVal = null;
+let eventYearMin = null, eventYearMax = null;
+let pubYearMin = null, pubYearMax = null;
 
-function publicationCitation(m) {
+// ---------- escaping / safe links ----------
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+// Only http(s) URLs are ever used as link targets.
+function safeHttpUrl(u) {
+  if (typeof u !== "string" || !u.trim()) return null;
+  try {
+    const url = new URL(u.trim());
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function bareDoi(doi) {
+  if (typeof doi !== "string" || !doi.trim()) return null;
+  return doi.trim().replace(/^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)/i, "");
+}
+
+function doiUrl(doi) {
+  const bare = bareDoi(doi);
+  return bare ? safeHttpUrl("https://doi.org/" + encodeURI(bare)) : null;
+}
+
+function publicationUrl(ref) {
+  return doiUrl(ref && ref.doi) || safeHttpUrl(ref && ref.url);
+}
+
+function styleColor(style) {
+  return Object.prototype.hasOwnProperty.call(STYLE_COLORS, style) ? STYLE_COLORS[style] : FALLBACK_COLOR;
+}
+
+function finiteNumber(v) {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function fmtKm(v) {
+  return String(Number(Number(v).toFixed(2)));
+}
+
+// ---------- record text helpers ----------
+function firstAuthorSurname(m) {
   const authors = (m.reference && m.reference.authors) || [];
   const first = String(authors[0] || "Unknown author").trim();
   // Most records use "Given Middle Surname" or "Initials Surname".
   // Also support "Surname, Given" without modifying the underlying metadata.
-  const surname = first.includes(",") ? first.split(",")[0].trim() : first.split(/\s+/).at(-1);
+  return first.includes(",") ? first.split(",")[0].trim() : first.split(/\s+/).at(-1);
+}
+
+function publicationCitation(m) {
+  const authors = (m.reference && m.reference.authors) || [];
+  const surname = firstAuthorSurname(m);
   const label = authors.length > 1 ? `${surname} et al.` : surname;
-  return `${label} (${m.reference?.year || "n.d."})`;
+  return `${label} (${(m.reference && m.reference.year) || "n.d."})`;
 }
 
 function slipNumber(value) {
@@ -298,13 +469,52 @@ function slipNumber(value) {
 function magnitudeSubscript(type) {
   // Keep the published magnitude scale; ML must not be relabeled Mw.
   const typeText = String(type || "Mw").replace(/\s/g, "");
-  if (/^m(w|l|s|b)$/i.test(typeText)) return `M<sub>${typeText.slice(1)}</sub>`;
-  return typeText;
+  if (/^m(w|l|s|b)$/i.test(typeText)) return `M<sub>${escapeHtml(typeText.slice(1))}</sub>`;
+  return escapeHtml(typeText);
 }
 
 function magnitudePlain(m) {
-  return `${m.event.magnitude_type || "M"} ${Number(m.event.magnitude).toFixed(1)}`;
+  const mag = Number(m.event.magnitude);
+  return `${m.event.magnitude_type || "M"} ${Number.isFinite(mag) ? mag.toFixed(1) : "?"}`;
 }
+
+function eventYear(m) {
+  const t = m.event && m.event.origin_time;
+  const match = typeof t === "string" ? /^(\d{4})-\d{2}-\d{2}/.exec(t) : null;
+  return match ? Number(match[1]) : null;
+}
+
+function eventDateText(m) {
+  const t = m.event && m.event.origin_time;
+  if (typeof t !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(t)) return null;
+  return t.replace("T", " ").replace(/Z$/, " UTC");
+}
+
+function pubYear(m) {
+  const y = m.reference && m.reference.year;
+  return Number.isInteger(y) ? y : null;
+}
+
+function modelPhase(m) {
+  return (m.model_variant && m.model_variant.phase) || "coseismic";
+}
+
+function dataTypesOf(m) {
+  const t = m.inversion && m.inversion.data_types;
+  return Array.isArray(t) ? t.map(String) : [];
+}
+
+function eventName(m) {
+  return m._browser_event_name || (m.event && m.event.name) || m._browser_id;
+}
+
+function searchText(m) {
+  const ev = m.event || {}, ref = m.reference || {};
+  return [ev.name, m._browser_event_name, (ref.authors || []).join(" "), ev.region, ev.tectonic_setting,
+    ref.title, ref.journal, ref.doi, m.model_id, m._browser_id]
+    .filter(v => v != null).join(" ").toLowerCase();
+}
+const SEARCH_TEXT = new Map(MODELS.map(m => [m._browser_id, searchText(m)]));
 
 // 5-pointed star icon used for every modeled earthquake and in the marker-size legend.
 function starIconHtml(color, sizePx, selected) {
@@ -320,8 +530,8 @@ function starIconHtml(color, sizePx, selected) {
   }
   const sw = selected ? 2.5 : 1;
   const sc = selected ? "#1b1f24" : "#ffffff";
-  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" style="overflow:visible;">` +
-    `<polygon points="${pts.join(" ")}" fill="${color}" fill-opacity="0.85" stroke="${sc}" stroke-width="${sw}"/></svg>`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}" style="overflow:visible;" aria-hidden="true">` +
+    `<polygon points="${pts.join(" ")}" fill="${escapeHtml(color)}" fill-opacity="0.85" stroke="${sc}" stroke-width="${sw}"/></svg>`;
 }
 
 // ---------- geometry helpers (schematic, spherical-earth approximation) ----------
@@ -354,17 +564,99 @@ function hasCoordinates(point) {
     && Math.abs(point.latitude) <= 90 && Math.abs(point.longitude) <= 180;
 }
 
-function segmentSurfacePolygon(seg) {
-  const { strike_deg, dip_deg, length_km, width_km, reference_point } = seg;
-  if (!hasCoordinates(reference_point)) return null;
-  const halfLen = length_km / 2;
-  const topLeft = destPoint(reference_point.latitude, reference_point.longitude, (strike_deg + 180) % 360, halfLen);
-  const topRight = destPoint(reference_point.latitude, reference_point.longitude, strike_deg, halfLen);
-  const downDipAz = (strike_deg + 90) % 360;
-  const downDipOffset = width_km * Math.cos(dip_deg * Math.PI / 180);
-  const botLeft = destPoint(topLeft[0], topLeft[1], downDipAz, downDipOffset);
-  const botRight = destPoint(topRight[0], topRight[1], downDipAz, downDipOffset);
-  return [topLeft, topRight, botRight, botLeft];
+// Surface projection of a fault-plane point. Fault-plane frame (schema): along strike from the
+// segment start in the strike direction, down dip from the top edge; Aki–Richards convention,
+// so the horizontal down-dip offset d·cos(dip) points toward azimuth strike + 90°.
+function planePoint(origin, strikeDeg, dipDeg, alongKm, downDipKm) {
+  const move = (p, az, dist) => dist >= 0 ? destPoint(p[0], p[1], az, dist) : destPoint(p[0], p[1], az + 180, -dist);
+  const p = move(origin, strikeDeg, alongKm);
+  return move(p, strikeDeg + 90, downDipKm * Math.cos(dipDeg * Math.PI / 180));
+}
+
+// Where along the plane a reference point sits, following reference_point.position (schema 1.1).
+function referencePlacement(seg) {
+  const ref = seg.reference_point || {};
+  const L = finiteNumber(seg.length_km) ?? 0, W = finiteNumber(seg.width_km) ?? 0;
+  const a = finiteNumber(ref.along_strike_km), d = finiteNumber(ref.down_dip_km);
+  const names = { top_center: "top centre", top_left: "top-left corner (patch-coordinate origin)",
+    center: "centre of the plane", hypocenter: "hypocentre", unknown: "point of unknown position" };
+  const named = Object.prototype.hasOwnProperty.call(names, ref.position) ? names[ref.position] : "reference point";
+  if (a != null && d != null) {
+    return { along: a, down: d, flag: null,
+      text: `Reference point = ${named} at ${fmtKm(a)} km along strike, ${fmtKm(d)} km down dip (stated in the record)` };
+  }
+  switch (ref.position) {
+    case "top_left":
+      return { along: 0, down: 0, flag: null, text: "Reference point = top-left corner of the plane (patch-coordinate origin)" };
+    case "center":
+      return { along: L / 2, down: W / 2, flag: null, text: "Reference point = centre of the fault plane" };
+    case "top_center":
+      return { along: L / 2, down: 0, flag: null, text: "Reference point = top centre of the fault plane" };
+    case "hypocenter":
+      return { along: L / 2, down: W / 2, flag: "approximate",
+        text: "Reference point = hypocentre; its position on the plane is not given, so it is treated as the fault centre" };
+    case "unknown":
+      return { along: L / 2, down: 0, flag: "assumed", text: "Reference point position is stated as unknown; top centre assumed" };
+    default:
+      return { along: L / 2, down: 0, flag: "assumed", text: "Reference point taken as the top centre of the plane (the record does not say which point it is)" };
+  }
+}
+
+function median(values) {
+  const s = [...values].sort((x, y) => x - y);
+  return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : null;
+}
+
+// Fault-plane origin (along strike 0, down dip 0) implied by patches that carry coordinates.
+function originFromPatches(seg) {
+  const strike = seg.strike_deg, dip = seg.dip_deg;
+  const origins = (seg.patches || []).filter(p => hasCoordinates(p)
+    && Number.isFinite(p.along_strike_km) && Number.isFinite(p.down_dip_km))
+    .map(p => planePoint([p.latitude, p.longitude], strike, dip, -p.along_strike_km, -p.down_dip_km));
+  if (!origins.length) return null;
+  return [median(origins.map(o => o[0])), median(origins.map(o => o[1]))];
+}
+
+function segmentLabel(seg, index) {
+  return seg.name || seg.segment_id || `Segment ${index + 1}`;
+}
+
+function segmentGeometry(seg, index) {
+  const label = segmentLabel(seg, index);
+  const strike = finiteNumber(seg.strike_deg), dip = finiteNumber(seg.dip_deg);
+  const result = { seg, label, origin: null, text: "", flag: null, extra: null };
+  if (strike == null || dip == null) {
+    result.text = "Strike/dip missing — cannot be projected on the map";
+    return result;
+  }
+  const ref = seg.reference_point || {};
+  const patchOrigin = originFromPatches(seg);
+  if (hasCoordinates(ref)) {
+    const place = referencePlacement(seg);
+    result.origin = planePoint([ref.latitude, ref.longitude], strike, dip, -place.along, -place.down);
+    result.text = place.text;
+    result.flag = place.flag;
+    if (patchOrigin) {
+      const gap = haversineKm(result.origin, patchOrigin);
+      if (gap > 1) {
+        result.extra = `Patch coordinates in the record imply a plane origin ${gap.toFixed(1)} km away from this placement; patches are drawn at their own coordinates.`;
+      }
+    }
+  } else if (patchOrigin) {
+    result.origin = patchOrigin;
+    result.text = "Placed from the patch coordinates in the record (no reference point)";
+  } else {
+    result.text = "No geographic anchor in the record — slip shown in fault-plane coordinates only";
+  }
+  return result;
+}
+
+function segmentSurfacePolygon(geo) {
+  const { seg, origin } = geo;
+  if (!origin) return null;
+  const L = finiteNumber(seg.length_km) ?? 0, W = finiteNumber(seg.width_km) ?? 0;
+  const pt = (a, d) => planePoint(origin, seg.strike_deg, seg.dip_deg, a, d);
+  return [pt(0, 0), pt(L, 0), pt(L, W), pt(0, W)];
 }
 
 function repPoint(model) {
@@ -372,6 +664,10 @@ function repPoint(model) {
   if (segment) return [segment.reference_point.latitude, segment.reference_point.longitude];
   const hypocenter = model.event && model.event.hypocenter;
   if (hasCoordinates(hypocenter)) return [hypocenter.latitude, hypocenter.longitude];
+  for (const s of model.fault_segments || []) {
+    const p = (s.patches || []).find(hasCoordinates);
+    if (p) return [p.latitude, p.longitude];
+  }
   // Do not invent a map location when the model has no geographic coordinates.
   return null;
 }
@@ -387,15 +683,22 @@ function slipColor(v, vmax) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
+function modelSlipMax(m) {
+  return Math.max(0, ...(m.fault_segments || []).flatMap(seg => (seg.patches || []).map(p => Number(p.slip_m) || 0)));
+}
+
 // ---------- data helpers ----------
-function allValues(key1, key2) {
+function allValues(getter) {
   const set = new Set();
   MODELS.forEach(m => {
-    let v = key2 ? m[key1] && m[key1][key2] : m[key1];
-    if (Array.isArray(v)) v.forEach(x => set.add(x));
-    else if (v) set.add(v);
+    const v = getter(m);
+    if (Array.isArray(v)) {
+      if (v.length) v.forEach(x => set.add(String(x)));
+      else set.add(NOT_STATED);
+    } else set.add(v ? String(v) : NOT_STATED);
   });
-  return [...set].sort();
+  const values = [...set].filter(v => v !== NOT_STATED).sort();
+  return set.has(NOT_STATED) ? [...values, NOT_STATED] : values;
 }
 
 function buildFilterCheckboxes(containerId, values, name) {
@@ -418,36 +721,41 @@ function checkedValues(name) {
   return [...document.querySelectorAll(`input[data-filter-group="${name}"]:checked`)].map(el => el.value);
 }
 
-function modelYear(m) {
-  if (m.reference && m.reference.year) return m.reference.year;
-  if (m.event && m.event.origin_time) return parseInt(m.event.origin_time.slice(0, 4), 10);
-  return null;
+function inRange(value, lo, hi) {
+  // Models lacking the value are never excluded by a range filter.
+  if (value == null) return true;
+  if (lo != null && value < lo - 1e-9) return false;
+  if (hi != null && value > hi + 1e-9) return false;
+  return true;
 }
 
 function filteredModels() {
   const q = document.getElementById("searchBox").value.trim().toLowerCase();
+  // An empty selection in a checkbox group matches nothing.
   const styles = checkedValues("style");
   const dtypes = checkedValues("dtype");
 
   return MODELS.filter(m => {
-    if (q) {
-      const hay = (m.event.name + " " + m.reference.authors.join(" ")).toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    if (magMinVal != null && m.event.magnitude < magMinVal) return false;
-    if (magMaxVal != null && m.event.magnitude > magMaxVal) return false;
-    if (styles.length && !styles.includes(m.event.faulting_style)) return false;
-    if (dtypes.length) {
-      const mt = (m.inversion && m.inversion.data_types) || [];
-      if (!mt.some(t => dtypes.includes(t))) return false;
-    }
-    const y = modelYear(m);
-    if (y != null) {
-      if (yearMinVal != null && y < yearMinVal) return false;
-      if (yearMaxVal != null && y > yearMaxVal) return false;
-    }
+    if (q && !SEARCH_TEXT.get(m._browser_id).includes(q)) return false;
+    if (!inRange(finiteNumber(m.event.magnitude), magMinVal, magMaxVal)) return false;
+    if (!styles.includes(m.event.faulting_style ? String(m.event.faulting_style) : NOT_STATED)) return false;
+    const mt = dataTypesOf(m);
+    if (!(mt.length ? mt.some(t => dtypes.includes(t)) : dtypes.includes(NOT_STATED))) return false;
+    if (!inRange(eventYear(m), eventYearMin, eventYearMax)) return false;
+    if (!inRange(pubYear(m), pubYearMin, pubYearMax)) return false;
     return true;
   });
+}
+
+// Models grouped by their build-assigned event, in list order.
+function groupByEvent(models) {
+  const groups = new Map();
+  models.forEach(m => {
+    const key = m._browser_event_key;
+    if (!groups.has(key)) groups.set(key, { key, name: eventName(m), models: [] });
+    groups.get(key).models.push(m);
+  });
+  return [...groups.values()];
 }
 
 // ---------- generic dual-handle range slider (two overlaid <input type=range>) ----------
@@ -475,6 +783,8 @@ function setupDualSlider(minId, maxId, fillId, minLabelId, maxLabelId, dataMin, 
     fillEl.style.width = Math.max(maxPct - minPct, 0) + "%";
     minLabelEl.textContent = formatFn(minV);
     maxLabelEl.textContent = formatFn(maxV);
+    minEl.setAttribute("aria-valuetext", formatFn(minV));
+    maxEl.setAttribute("aria-valuetext", formatFn(maxV));
     onChange(minV, maxV);
   }
   minEl.addEventListener("input", update);
@@ -485,8 +795,10 @@ function setupDualSlider(minId, maxId, fillId, minLabelId, maxLabelId, dataMin, 
 // ---------- map + basemaps ----------
 const map = L.map("map", { scrollWheelZoom: true, zoomControl: false }).setView([38.5, 23.5], 6);
 L.control.zoom({ position: "topleft" }).addTo(map);
+map.createPane("faultPane").style.zIndex = 420;
+const patchRenderer = L.canvas({ padding: 0.5 });
 
-const baseStreets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+const baseStreets = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap contributors", maxZoom: 19
 });
 const baseSatellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
@@ -505,8 +817,11 @@ const HomeControl = L.Control.extend({
   onAdd: function () {
     const div = L.DomUtil.create("div", "gb-control leaflet-bar");
     const btn = L.DomUtil.create("button", "gb-btn", div);
+    btn.type = "button";
     btn.title = "Reset to Greece extent";
+    btn.setAttribute("aria-label", "Reset map to Greece extent");
     btn.innerHTML = "&#8962;";
+    L.DomEvent.disableClickPropagation(div);
     L.DomEvent.on(btn, "click", (e) => {
       L.DomEvent.stop(e);
       map.setView(HOME_VIEW.center, HOME_VIEW.zoom);
@@ -521,16 +836,19 @@ let measuring = false;
 let measurePts = [];
 let measureLine = null;
 let measureMarkers = [];
-let measureLabelEl = null;
 
 const MeasureControl = L.Control.extend({
   options: { position: "topleft" },
   onAdd: function () {
     const div = L.DomUtil.create("div", "gb-control leaflet-bar");
     const btn = L.DomUtil.create("button", "gb-btn", div);
+    btn.type = "button";
     btn.id = "measureBtn";
     btn.title = "Measure distance (click two points)";
+    btn.setAttribute("aria-label", "Measure distance (click two points on the map)");
+    btn.setAttribute("aria-pressed", "false");
     btn.innerHTML = "&#128207;";
+    L.DomEvent.disableClickPropagation(div);
     L.DomEvent.on(btn, "click", (e) => {
       L.DomEvent.stop(e);
       toggleMeasure();
@@ -540,11 +858,18 @@ const MeasureControl = L.Control.extend({
 });
 map.addControl(new MeasureControl());
 
+function setMeasuring(on) {
+  measuring = on;
+  const btn = document.getElementById("measureBtn");
+  btn.classList.toggle("active", on);
+  btn.setAttribute("aria-pressed", String(on));
+  map.getContainer().style.cursor = on ? "crosshair" : "";
+}
+
 function toggleMeasure() {
-  measuring = !measuring;
-  document.getElementById("measureBtn").classList.toggle("active", measuring);
+  const on = !measuring;
   clearMeasure();
-  map.getContainer().style.cursor = measuring ? "crosshair" : "";
+  setMeasuring(on);
 }
 
 function clearMeasure() {
@@ -552,30 +877,21 @@ function clearMeasure() {
   if (measureLine) { map.removeLayer(measureLine); measureLine = null; }
   measureMarkers.forEach(mk => map.removeLayer(mk));
   measureMarkers = [];
-  if (measureLabelEl) { measureLabelEl.remove(); measureLabelEl = null; }
 }
 
 map.on("click", (e) => {
   if (!measuring) return;
   measurePts.push([e.latlng.lat, e.latlng.lng]);
-  const mk = L.circleMarker(e.latlng, { radius: 4, color: "#1b1f24", fillOpacity: 1 }).addTo(map);
+  const mk = L.circleMarker(e.latlng, { radius: 4, color: "#1b1f24", fillOpacity: 1, interactive: false }).addTo(map);
   measureMarkers.push(mk);
   if (measurePts.length === 2) {
-    measureLine = L.polyline(measurePts, { color: "#1b1f24", weight: 2, dashArray: "4,4" }).addTo(map);
     const dist = haversineKm(measurePts[0], measurePts[1]);
-    const mid = map.latLngToContainerPoint([
-      (measurePts[0][0] + measurePts[1][0]) / 2,
-      (measurePts[0][1] + measurePts[1][1]) / 2
-    ]);
-    measureLabelEl = document.createElement("div");
-    measureLabelEl.id = "measureLabel";
-    measureLabelEl.textContent = dist.toFixed(1) + " km";
-    measureLabelEl.style.left = mid.x + "px";
-    measureLabelEl.style.top = mid.y + "px";
-    map.getContainer().appendChild(measureLabelEl);
-    measuring = false;
-    document.getElementById("measureBtn").classList.remove("active");
-    map.getContainer().style.cursor = "";
+    // The distance label is a permanent tooltip bound to the line, so it follows pan and zoom.
+    measureLine = L.polyline(measurePts, { color: "#1b1f24", weight: 2, dashArray: "4,4" })
+      .bindTooltip(dist.toFixed(1) + " km", { permanent: true, direction: "center", className: "measure-tooltip" })
+      .addTo(map);
+    measureLine.openTooltip();
+    setMeasuring(false);
   }
 });
 
@@ -586,10 +902,12 @@ const LegendControl = L.Control.extend({
     const div = L.DomUtil.create("div", "gb-control", "");
     div.id = "legendControl";
     L.DomEvent.disableClickPropagation(div);
-    div.innerHTML = `
+    // Collapsible so the legend does not cover the small single-column map.
+    div.innerHTML = `<details id="legendDetails" ${window.matchMedia("(max-width: 640px)").matches ? "" : "open"}>
+      <summary>Legend</summary>
       <div class="lg-title">Faulting style</div>
       ${Object.entries(STYLE_COLORS).map(([k, c]) => `
-        <div class="lg-row"><span class="lg-dot" style="background:${c}"></span>${k}</div>
+        <div class="lg-row"><span class="lg-dot" style="background:${c}"></span>${escapeHtml(k)}</div>
       `).join("")}
       <hr/>
       <div class="lg-title">Magnitude · proportional star size</div>
@@ -598,8 +916,8 @@ const LegendControl = L.Control.extend({
       `).join("")}</div>
       <hr/>
       <div class="lg-title">Live layer (off by default)</div>
-      <div class="lg-row">${starIconHtml("#e67e22", starSizePx(3), false)}<span>Recent seismicity (USGS, 90d, M2.5+)</span></div>
-    `;
+      <div class="lg-row">${starIconHtml("#e67e22", starSizePx(3), false)}<span>${escapeHtml(SEISMICITY_LABEL)}</span></div>
+    </details>`;
     return div;
   }
 });
@@ -608,56 +926,393 @@ map.addControl(new LegendControl());
 L.control.scale({ position: "bottomright", metric: true, imperial: false }).addTo(map);
 
 // ---------- render ----------
+function modelRow(m, grouped) {
+  const row = document.createElement("button");
+  row.type = "button";
+  const selected = m._browser_id === selectedId;
+  row.className = "model-row" + (grouped ? " in-group" : "") + (selected ? " selected" : "");
+  row.dataset.modelId = m._browser_id;
+  if (selected) row.setAttribute("aria-current", "true");
+  const name = document.createElement("span");
+  name.className = "name";
+  const citation = document.createElement("span");
+  citation.className = "citation";
+  if (grouped) {
+    name.textContent = publicationCitation(m);
+    const types = dataTypesOf(m).join(", ") || "data types not stated";
+    citation.textContent = `${types} · ${modelPhase(m)}`;
+  } else {
+    name.textContent = m.event.name;
+    citation.textContent = publicationCitation(m);
+  }
+  row.append(name, citation);
+  row.addEventListener("click", () => selectModel(m._browser_id));
+  return row;
+}
+
+function eventPopupContent(group) {
+  const div = document.createElement("div");
+  div.className = "event-popup";
+  const title = document.createElement("div");
+  title.className = "ep-title";
+  title.textContent = group.name;
+  const hint = document.createElement("div");
+  hint.className = "ep-hint";
+  hint.textContent = `${group.models.length} models of this event — choose one:`;
+  div.append(title, hint);
+  group.models.forEach(m => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ep-btn";
+    btn.textContent = publicationCitation(m);
+    const small = document.createElement("small");
+    small.textContent = `${dataTypesOf(m).join(", ") || "data types not stated"} · ${modelPhase(m)}`;
+    btn.appendChild(small);
+    btn.addEventListener("click", () => {
+      map.closePopup();
+      selectModel(m._browser_id, { focusMarker: true });
+    });
+    div.appendChild(btn);
+  });
+  return div;
+}
+
+let markerByEvent = new Map();
+
 function render() {
   const list = filteredModels();
+  const groups = groupByEvent(list);
+  const selected = selectedId ? MODEL_BY_ID.get(selectedId) : null;
 
   const listEl = document.getElementById("modelList");
-  listEl.innerHTML = "";
-  list.forEach(m => {
-    const row = document.createElement("div");
-    row.className = "model-row" + (m.model_id === selectedId ? " selected" : "");
-    row.innerHTML = `
-      <div class="name">${m.event.name}</div>
-      <div class="citation">${publicationCitation(m)}</div>
-    `;
-    row.addEventListener("click", () => selectModel(m.model_id));
-    listEl.appendChild(row);
+  const focusedId = listEl.contains(document.activeElement) ? document.activeElement.dataset.modelId : null;
+  const scrollTop = listEl.scrollTop;
+  listEl.replaceChildren();
+  if (!list.length) {
+    const empty = document.createElement("div");
+    empty.className = "list-empty";
+    empty.textContent = "No models match the current filters.";
+    listEl.appendChild(empty);
+  }
+  groups.forEach(g => {
+    if (g.models.length === 1) {
+      listEl.appendChild(modelRow(g.models[0], false));
+      return;
+    }
+    const block = document.createElement("div");
+    block.className = "event-group";
+    block.setAttribute("role", "group");
+    block.setAttribute("aria-label", g.name);
+    const head = document.createElement("div");
+    head.className = "event-head";
+    const name = document.createElement("span");
+    name.className = "ev-name";
+    name.textContent = g.name;
+    const meta = document.createElement("span");
+    meta.className = "ev-meta";
+    const first = g.models[0];
+    meta.textContent = [magnitudePlain(first), eventYear(first), `${g.models.length} models`].filter(Boolean).join(" · ");
+    head.append(name, meta);
+    block.appendChild(head);
+    g.models.forEach(m => block.appendChild(modelRow(m, true)));
+    listEl.appendChild(block);
   });
+  listEl.scrollTop = scrollTop;
+  if (focusedId) {
+    const again = [...listEl.querySelectorAll(".model-row")].find(r => r.dataset.modelId === focusedId);
+    if (again) again.focus({ preventScroll: true });
+  }
 
+  // One star per event, at the first representative point among its visible models.
   if (eventLayer) map.removeLayer(eventLayer);
   eventLayer = L.layerGroup();
-  list.forEach(m => {
-    const position = repPoint(m);
+  markerByEvent = new Map();
+  groups.forEach(g => {
+    let position = null, rep = null;
+    for (const m of g.models) {
+      position = repPoint(m);
+      if (position) { rep = m; break; }
+    }
     if (!position) return;  // Still shown in the model list and slip grid.
-    const [lat, lon] = position;
-    const color = STYLE_COLORS[m.event.faulting_style] || FALLBACK_COLOR;
-    const isSelected = m.model_id === selectedId;
-    const d = starSizePx(m.event.magnitude);
-    const marker = L.marker([lat, lon], {
+    const color = styleColor(rep.event.faulting_style);
+    const isSelected = !!selected && selected._browser_event_key === g.key;
+    const d = starSizePx(rep.event.magnitude);
+    const marker = L.marker(position, {
       icon: L.divIcon({
         html: starIconHtml(color, d, isSelected),
         className: "",
         iconSize: [d, d],
         iconAnchor: [d / 2, d / 2]
-      })
+      }),
+      zIndexOffset: isSelected ? 1000 : 0
     });
-    marker.bindTooltip(`${m.event.name} — ${magnitudePlain(m)} · ${publicationCitation(m)}`);
-    marker.on("click", () => selectModel(m.model_id));
+    const single = g.models.length === 1;
+    const label = single
+      ? `${g.models[0].event.name} — ${magnitudePlain(rep)} · ${publicationCitation(g.models[0])}`
+      : `${g.name} — ${magnitudePlain(rep)} · ${g.models.length} models`;
+    marker.bindTooltip(escapeHtml(label));
+    marker.on("add", () => {
+      const el = marker.getElement();
+      if (el) el.setAttribute("aria-label", label + (single ? "" : " (choose a model)"));
+    });
+    if (single) {
+      marker.on("click", () => selectModel(g.models[0]._browser_id, { focusMarker: true }));
+    } else {
+      marker.bindPopup(() => eventPopupContent(g), { minWidth: 220, maxWidth: 300 });
+    }
+    // Leaflet markers are focusable; Enter/Space activate them like a click.
+    marker.on("keydown", e => {
+      const key = e.originalEvent.key;
+      if (key !== "Enter" && key !== " ") return;
+      e.originalEvent.preventDefault();
+      if (single) {
+        selectModel(g.models[0]._browser_id, { focusMarker: true });
+        return;
+      }
+      marker.openPopup();
+      const firstChoice = marker.getPopup().getElement() && marker.getPopup().getElement().querySelector(".ep-btn");
+      if (firstChoice) firstChoice.focus();
+    });
     marker.addTo(eventLayer);
+    markerByEvent.set(g.key, marker);
   });
   eventLayer.addTo(map);
 
   document.getElementById("statsBox").innerHTML =
     `<b>${list.length}</b> of ${MODELS.length} models shown &middot; ` +
-    `<b>${new Set(MODELS.map(m => m.event.event_id)).size}</b> distinct events`;
+    `<b>${new Set(MODELS.map(m => m._browser_event_key)).size}</b> distinct events`;
 }
 
-function selectModel(id) {
-  selectedId = id;
-  const m = MODELS.find(x => x.model_id === id);
-  render();
-  if (!m) return;
+// ---------- permalinks ----------
+function modelIdFromHash() {
+  const match = /^#model=(.*)$/.exec(location.hash);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch (err) {
+    return null;
+  }
+}
 
+function applyHash() {
+  const id = modelIdFromHash();
+  if (id == null) {
+    if (selectedId && !location.hash) selectModel(null, { updateHash: false });
+    return;
+  }
+  // Older links may carry a model_id; canonicalize them to the file-stem key.
+  const m = MODEL_BY_ID.get(id) || MODELS.find(x => x.model_id === id);
+  if (!m) return;
+  if (m._browser_id !== id) history.replaceState(null, "", "#model=" + encodeURIComponent(m._browser_id));
+  if (m._browser_id === selectedId) return;
+  selectModel(m._browser_id, { updateHash: false, scrollList: true });
+}
+
+// ---------- selection + detail panel ----------
+function selectModel(id, opts = {}) {
+  const m = id != null ? MODEL_BY_ID.get(id) : null;
+  selectedId = m ? m._browser_id : null;
+  if (m && opts.updateHash !== false) {
+    const want = "#model=" + encodeURIComponent(m._browser_id);
+    if (location.hash !== want) location.hash = "model=" + encodeURIComponent(m._browser_id);
+  }
+  render();
+  if (faultLayer) { map.removeLayer(faultLayer); faultLayer = null; }
+  if (slipLayer) { map.removeLayer(slipLayer); slipLayer = null; }
+  if (!m) {
+    document.getElementById("detailContent").style.display = "none";
+    document.getElementById("detailContent").replaceChildren();
+    document.getElementById("detailEmpty").style.display = "";
+    slipGridState = null;
+    return;
+  }
+  const geometry = drawFaultGeometry(m);
+  showDetail(m, geometry);
+  if (geometry.bounds && geometry.bounds.isValid()) {
+    map.fitBounds(geometry.bounds, { padding: [40, 40], maxZoom: 11 });
+  } else {
+    const position = repPoint(m);
+    // A model without any coordinates has no star; do not leave another event in view.
+    if (position) map.setView(position, 9);
+    else map.setView(HOME_VIEW.center, HOME_VIEW.zoom);
+  }
+  if (opts.scrollList) {
+    const row = [...document.querySelectorAll("#modelList .model-row")].find(r => r.dataset.modelId === m._browser_id);
+    if (row) row.scrollIntoView({ block: "nearest" });
+  }
+  if (opts.focusMarker) {
+    const marker = markerByEvent.get(m._browser_event_key);
+    const el = marker && marker.getElement();
+    if (el) el.focus({ preventScroll: true });
+  }
+}
+
+function drawFaultGeometry(m) {
+  const color = styleColor(m.event.faulting_style);
+  const vmax = modelSlipMax(m);
+  const segments = (m.fault_segments || []).map(segmentGeometry);
+  faultLayer = L.layerGroup();
+  slipLayer = L.featureGroup();
+  const bounds = L.latLngBounds([]);
+  let patchCount = 0;
+
+  segments.forEach(geo => {
+    const seg = geo.seg;
+    const outline = segmentSurfacePolygon(geo);
+    if (outline) {
+      L.polygon(outline, { pane: "faultPane", color, weight: 1.5, fillOpacity: 0.06, interactive: false }).addTo(faultLayer);
+      L.polyline([outline[0], outline[1]], { pane: "faultPane", color, weight: 4.5, opacity: 0.95 })
+        .bindTooltip(escapeHtml(`${geo.label}: top edge (surface projection${Number.isFinite(seg.top_depth_km) ? `, top depth ${fmtKm(seg.top_depth_km)} km` : ""})`), { sticky: true })
+        .addTo(faultLayer);
+      outline.forEach(p => bounds.extend(p));
+    }
+    const patches = Array.isArray(seg.patches) ? seg.patches : [];
+    if (!patches.length || finiteNumber(seg.strike_deg) == null || finiteNumber(seg.dip_deg) == null) return;
+    const grid = makeSlipGrid(seg, 0);
+    const halfL = grid.dx / 2, halfW = grid.dy / 2;
+    patches.forEach(p => {
+      const slip = Number(p.slip_m);
+      if (!(slip > 0) || !Number.isFinite(p.along_strike_km) || !Number.isFinite(p.down_dip_km)) return;
+      let corners;
+      if (hasCoordinates(p)) {
+        const c = [p.latitude, p.longitude];
+        corners = [[-halfL, -halfW], [halfL, -halfW], [halfL, halfW], [-halfL, halfW]]
+          .map(([a, d]) => planePoint(c, seg.strike_deg, seg.dip_deg, a, d));
+      } else if (geo.origin) {
+        corners = [[-halfL, -halfW], [halfL, -halfW], [halfL, halfW], [-halfL, halfW]]
+          .map(([a, d]) => planePoint(geo.origin, seg.strike_deg, seg.dip_deg, p.along_strike_km + a, p.down_dip_km + d));
+      } else return;
+      const fill = slipColor(slip, vmax);
+      const poly = L.polygon(corners, { renderer: patchRenderer, color: fill, weight: 0.6, opacity: 0.85, fillColor: fill, fillOpacity: 0.8 });
+      poly.patchInfo = `${geo.label}: slip ${slipNumber(slip)} · ${fmtKm(p.along_strike_km)} km along strike, ${fmtKm(p.down_dip_km)} km down dip` +
+        (Number.isFinite(p.depth_km) ? ` · depth ${fmtKm(p.depth_km)} km` : "");
+      poly.addTo(slipLayer);
+      corners.forEach(c => bounds.extend(c));
+      patchCount++;
+    });
+  });
+  slipLayer.bindTooltip(layer => escapeHtml(layer.patchInfo || ""), { sticky: true });
+
+  const hypo = m.event.hypocenter || {};
+  if (hasCoordinates(hypo)) {
+    L.circleMarker([hypo.latitude, hypo.longitude], { pane: "faultPane", radius: 5, color: "#ffffff", weight: 2, fillColor: "#1b1f24", fillOpacity: 1 })
+      .bindTooltip(escapeHtml(`Hypocentre${Number.isFinite(hypo.depth_km) ? ` · depth ${fmtKm(hypo.depth_km)} km` : ""}`))
+      .addTo(faultLayer);
+  }
+  faultLayer.addTo(map);
+  if (showSlipOnMap) slipLayer.addTo(map);
+  return { segments, bounds, patchCount, vmax };
+}
+
+function dataOriginBadge(m) {
+  const prov = m.provenance || {};
+  const origin = prov.data_origin;
+  const known = Object.prototype.hasOwnProperty.call(DATA_ORIGIN_LABELS, origin);
+  const label = known ? DATA_ORIGIN_LABELS[origin] : (origin ? `Data origin: ${origin}` : "Data origin not stated");
+  const text = prov.source_figure ? `${label} (${prov.source_figure})` : label;
+  const cls = /^digitized/.test(origin || "") ? "digitized" : (origin === "author_supplied" || origin === "srcmod") ? "authored" : "";
+  return `<span class="badge ${cls}" title="provenance.data_origin">${escapeHtml(text)}</span>`;
+}
+
+function stripBrowserKeys(m) {
+  return Object.fromEntries(Object.entries(m).filter(([k]) => !k.startsWith("_browser_")));
+}
+
+function downloadText(filename, text, type) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function csvCell(v) {
+  if (v == null) return "";
+  let s = String(v);
+  // Neutralize spreadsheet formulas in text cells; numbers are written as-is.
+  if (typeof v !== "number" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function patchesCsv(m) {
+  const segs = (m.fault_segments || []).filter(s => Array.isArray(s.patches) && s.patches.length);
+  const extra = ["rise_time_s", "rupture_time_s"].filter(k => segs.some(s => s.patches.some(p => p[k] != null)));
+  const cols = ["along_strike_km", "down_dip_km", "latitude", "longitude", "depth_km", "slip_m", "rake_deg", ...extra];
+  const lines = [["segment_id", ...cols].join(",")];
+  segs.forEach((s, i) => s.patches.forEach(p => {
+    lines.push([csvCell(s.segment_id ?? `segment${i + 1}`), ...cols.map(c => csvCell(p[c]))].join(","));
+  }));
+  return lines.join("\r\n") + "\r\n";
+}
+
+function plainCitation(m) {
+  const r = m.reference || {};
+  const parts = [`${(r.authors || []).join(", ") || "Unknown author"} (${r.year || "n.d."}).`];
+  if (r.title) parts.push(String(r.title).replace(/\.\s*$/, "") + ".");
+  const source = [r.journal, r.volume, r.pages].filter(v => v != null && String(v).trim()).join(", ");
+  if (source) parts.push(source + ".");
+  const doi = bareDoi(r.doi);
+  const link = doi ? "https://doi.org/" + doi : safeHttpUrl(r.url);
+  if (link) parts.push(link);
+  return parts.join(" ");
+}
+
+function bibtexEntry(m) {
+  const r = m.reference || {};
+  const fold = s => String(s).normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const key = (fold(firstAuthorSurname(m)) || "srcgr") + (r.year || "");
+  const esc = v => String(v).replace(/[{}\\]/g, "").replace(/([&%$#_])/g, "\\$1");
+  const fields = [];
+  const add = (name, value, raw) => {
+    if (value == null || !String(value).trim()) return;
+    fields.push(`  ${name} = {${raw ? String(value).replace(/[{}]/g, "") : esc(value)}}`);
+  };
+  add("author", (r.authors || []).join(" and "));
+  add("title", r.title);
+  add("journal", r.journal);
+  add("year", r.year);
+  add("volume", r.volume);
+  add("number", r.issue ?? r.number);
+  add("pages", r.pages != null ? String(r.pages).replace(/\s*[–—-]+\s*/g, "--") : null);
+  const doi = bareDoi(r.doi);
+  add("doi", doi, true);
+  if (!doi) add("url", safeHttpUrl(r.url), true);
+  return `@${r.journal ? "article" : "misc"}{${key},\n${fields.join(",\n")}\n}`;
+}
+
+async function copyText(text, button) {
+  let ok = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    }
+  } catch (err) {
+    ok = false;
+  }
+  if (!ok) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand("copy"); } catch (err) { ok = false; }
+    ta.remove();
+    button.focus();
+  }
+  if (!button.dataset.label) button.dataset.label = button.textContent;
+  button.textContent = ok ? "Copied ✓" : "Copy failed";
+  setTimeout(() => { button.textContent = button.dataset.label; }, 1600);
+}
+
+function showDetail(m, geometry) {
   document.getElementById("detailEmpty").style.display = "none";
   const content = document.getElementById("detailContent");
   content.style.display = "block";
@@ -665,6 +1320,7 @@ function selectModel(id) {
   const inv = m.inversion || {};
   const sm = m.summary_metrics || {};
   const ref = m.reference || {};
+  const prov = m.provenance || {};
   const hypo = m.event.hypocenter || {};
   const hypoLocation = hasCoordinates(hypo)
     ? `${hypo.latitude.toFixed(3)}, ${hypo.longitude.toFixed(3)}`
@@ -672,76 +1328,170 @@ function selectModel(id) {
   const hypoDepth = Number.isFinite(hypo.depth_km)
     ? `${hypo.depth_km} km depth`
     : "unknown depth";
+  const pubLink = publicationUrl(ref);
+  const hasPatches = (m.fault_segments || []).some(s => Array.isArray(s.patches) && s.patches.length);
+  const warnings = m._browser_warnings.map(String);
+  const phase = modelPhase(m);
+  const moment = finiteNumber(sm.seismic_moment_Nm);
+  const anchored = geometry.segments.filter(g => g.origin);
+  const permalink = "#model=" + encodeURIComponent(m._browser_id);
+  const recordJsonUrl = "data/" + encodeURIComponent(m._browser_id) + ".json";
+  const row = (k, v) => `<tr><td class="k">${k}</td><td>${v}</td></tr>`;
 
   content.innerHTML = `
-    <h2>${m.event.name}</h2>
-    <div class="authors">${(ref.authors || []).join(", ")} (${ref.year || "?"})</div>
+    <h2>${escapeHtml(m.event.name)}</h2>
+    <div class="authors">${escapeHtml((ref.authors || []).join(", "))} (${escapeHtml(ref.year || "?")})</div>
+    ${ref.title || ref.journal ? `<div class="ref-title">${escapeHtml(ref.title || "")}${ref.title && ref.journal ? ". " : ""}${ref.journal ? `<em>${escapeHtml(ref.journal)}</em>` : ""}</div>` : ""}
+    <div class="badges">${dataOriginBadge(m)}${phase !== "coseismic" ? `<span class="badge phase">${escapeHtml(phase)}</span>` : ""}</div>
     <table>
-      <tr><td class="k">Magnitude (${magnitudeSubscript(m.event.magnitude_type)})</td><td>${m.event.magnitude}</td></tr>
-      <tr><td class="k">Faulting style</td><td><span class="style-dot" style="background:${STYLE_COLORS[m.event.faulting_style] || FALLBACK_COLOR}"></span>${m.event.faulting_style}</td></tr>
-      <tr><td class="k">Tectonic setting</td><td>${m.event.tectonic_setting || "—"}</td></tr>
-      <tr><td class="k">Hypocenter</td><td>${hypoLocation}, ${hypoDepth}</td></tr>
-      <tr><td class="k">Data types</td><td>${(inv.data_types || []).join(", ") || "—"}</td></tr>
-      <tr><td class="k">Method</td><td>${inv.method || "—"}</td></tr>
-      <tr><td class="k">Slip type</td><td>${inv.slip_type || "—"}</td></tr>
-      <tr><td class="k">Max slip</td><td>${slipNumber(sm.max_slip_m)}</td></tr>
-      <tr><td class="k">Mean slip</td><td>${slipNumber(sm.mean_slip_m)}</td></tr>
-      <tr><td class="k">Rupture area</td><td>${sm.rupture_area_km2 != null ? sm.rupture_area_km2 + " km²" : "—"}</td></tr>
-      <tr><td class="k">Phase</td><td>${(m.model_variant && m.model_variant.phase) || "coseismic"}</td></tr>
+      ${row("Event date", escapeHtml(eventDateText(m) || "unknown"))}
+      ${row(`Magnitude (${magnitudeSubscript(m.event.magnitude_type)})`, escapeHtml(m.event.magnitude))}
+      ${row("Faulting style", `<span class="style-dot" style="background:${styleColor(m.event.faulting_style)}"></span>${escapeHtml(m.event.faulting_style)}`)}
+      ${row("Tectonic setting", escapeHtml(m.event.tectonic_setting || "—"))}
+      ${m.event.region ? row("Region", escapeHtml(m.event.region)) : ""}
+      ${row("Hypocenter", `${escapeHtml(hypoLocation)}, ${escapeHtml(hypoDepth)}`)}
+      ${row("Data types", escapeHtml(dataTypesOf(m).join(", ") || "—"))}
+      ${row("Method", escapeHtml(inv.method || "—"))}
+      ${row("Slip type", escapeHtml(inv.slip_type || "—"))}
+      ${row("Max slip", slipNumber(sm.max_slip_m))}
+      ${row("Mean slip", slipNumber(sm.mean_slip_m))}
+      ${row("Rupture area", sm.rupture_area_km2 != null ? escapeHtml(sm.rupture_area_km2) + " km²" : "—")}
+      ${moment != null ? row("Seismic moment", escapeHtml(moment.toExponential(2)) + " N·m") : ""}
+      ${row("Phase", escapeHtml(phase))}
+      ${row("Publication year", escapeHtml(pubYear(m) ?? "—"))}
+      ${row("License", prov.license ? escapeHtml(prov.license) : '<span class="muted">not specified</span>')}
+      ${prov.verified_by ? row("Verified by", escapeHtml(prov.verified_by)) : ""}
+      ${row("Source file", escapeHtml(m._browser_source_file || m._browser_id + ".json"))}
     </table>
 
-    ${ref.doi || ref.url ? `<a class="btn" href="${ref.doi ? "https://doi.org/" + ref.doi : ref.url}" target="_blank" rel="noopener">View publication ↗</a>` : ""}
-    <a class="btn" id="downloadBtn" href="#">Download record (JSON)</a>
+    ${pubLink ? `<a class="btn" href="${escapeHtml(pubLink)}" target="_blank" rel="noopener noreferrer">View publication ↗</a>` : ""}
+    <button type="button" class="btn" id="downloadBtn">Download record (JSON)</button>
+    ${hasPatches ? `<button type="button" class="btn" id="downloadCsvBtn">Download patches (CSV)</button>` : ""}
+    <a class="btn" href="data/models.json">All records (JSON)</a>
+    <a class="btn" href="${escapeHtml(permalink)}" title="Permanent link to this model">Permalink</a>
+
+    ${warnings.length ? `
+      <details class="dq">
+        <summary>Data-quality notes (${warnings.length})</summary>
+        <ul>${warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul>
+      </details>` : `<div class="dq-none">Data-quality checks: no warnings.</div>`}
+    ${prov.uncertainty_notes ? `<details><summary>Uncertainty notes</summary><p>${escapeHtml(prov.uncertainty_notes)}</p></details>` : ""}
+    ${inv.notes ? `<details><summary>Compiler notes</summary><p>${escapeHtml(inv.notes)}</p></details>` : ""}
 
     <div class="section-title">Slip distribution</div>
     <div id="patchCanvasWrap"></div>
+
+    <div class="section-title">Fault geometry on map</div>
+    ${anchored.length ? `
+      <label class="geo-toggle"><input type="checkbox" id="slipOnMapToggle" ${showSlipOnMap ? "checked" : ""} ${geometry.patchCount ? "" : "disabled"} /> Slip on map${geometry.patchCount ? "" : " (no slip patches to place)"}</label>
+      <ul class="geo-notes">${geometry.segments.map(g => `<li><b>${escapeHtml(g.label)}</b>: ${escapeHtml(g.text)}${g.flag ? `<span class="flag">${escapeHtml(g.flag)}</span>` : ""}${g.extra ? ` ${escapeHtml(g.extra)}` : ""}</li>`).join("")}</ul>
+      <div class="schematic-note">Surface projection: down-dip offset = d·cos(dip) toward strike + 90° (Aki–Richards); thick line = top edge; zero-slip patches are not drawn.</div>`
+    : `<div class="schematic-note">No geographic anchor in the record — slip shown in fault-plane coordinates only.${repPoint(m) ? " The map star marks the hypocentre." : " The record has no coordinates, so the model has no star on the map."}</div>`}
+
+    <div class="section-title">Cite</div>
+    <div class="cite-block">
+      <div class="cite-head"><span>Citation</span><button type="button" class="btn-mini" id="copyCiteBtn">Copy</button></div>
+      <pre id="citeText"></pre>
+      <div class="cite-head"><span>BibTeX</span><button type="button" class="btn-mini" id="copyBibBtn">Copy</button></div>
+      <pre id="bibText"></pre>
+      <div class="schematic-note">Static JSON of this record: <a href="${escapeHtml(recordJsonUrl)}">${escapeHtml(recordJsonUrl)}</a></div>
+    </div>
   `;
 
-  document.getElementById("downloadBtn").addEventListener("click", (e) => {
-    e.preventDefault();
-    const blob = new Blob([JSON.stringify(m, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = m.model_id + ".json";
-    a.click();
-    URL.revokeObjectURL(url);
+  const citeText = plainCitation(m);
+  const bibText = bibtexEntry(m);
+  document.getElementById("citeText").textContent = citeText;
+  document.getElementById("bibText").textContent = bibText;
+  document.getElementById("copyCiteBtn").addEventListener("click", e => copyText(citeText, e.currentTarget));
+  document.getElementById("copyBibBtn").addEventListener("click", e => copyText(bibText, e.currentTarget));
+
+  document.getElementById("downloadBtn").addEventListener("click", () => {
+    downloadText(m._browser_id + ".json", JSON.stringify(stripBrowserKeys(m), null, 2) + "\n", "application/json");
+  });
+  const csvBtn = document.getElementById("downloadCsvBtn");
+  if (csvBtn) csvBtn.addEventListener("click", () => downloadText(m._browser_id + "_patches.csv", patchesCsv(m), "text/csv"));
+  const toggle = document.getElementById("slipOnMapToggle");
+  if (toggle) toggle.addEventListener("change", () => {
+    showSlipOnMap = toggle.checked;
+    if (!slipLayer) return;
+    if (showSlipOnMap) slipLayer.addTo(map);
+    else map.removeLayer(slipLayer);
   });
 
   renderPatchGrid(m);
-
-  if (faultLayer) map.removeLayer(faultLayer);
-  faultLayer = L.layerGroup();
-  (m.fault_segments || []).forEach(seg => {
-    const poly = segmentSurfacePolygon(seg);
-    if (poly) {
-      L.polygon(poly, { color: STYLE_COLORS[m.event.faulting_style] || "#333", weight: 2, fillOpacity: 0.12 })
-        .addTo(faultLayer);
-    }
-  });
-  faultLayer.addTo(map);
-  const position = repPoint(m);
-  if (position) map.setView(position, 10);
 }
 
 // ---------- slip field overview + fullscreen multi-segment viewer ----------
 let slipGridState = null;
-const slipViewer = { active: 0, zoom: 1, panX: 0, panY: 0, dragging: false, lastX: 0, lastY: 0 };
+const slipViewer = { active: 0, zoom: 1, panX: 0, panY: 0, dragging: false, lastX: 0, lastY: 0, opener: null };
+
+// Regular axis of patch centres: missing rows/columns stay visible as gaps.
+function gridAxis(values, declaredStep, declaredCount) {
+  const irregular = step => ({ centres: values, step, index: v => values.indexOf(v) });
+  const diffs = values.slice(1).map((v, i) => v - values[i]).filter(d => d > 1e-9);
+  const minDiff = diffs.length ? Math.min(...diffs) : null;
+  const aligned = (origin, s) => values.every(v => Math.abs((v - origin) / s - Math.round((v - origin) / s)) < 0.1);
+  const declared = finiteNumber(declaredStep) > 0 ? declaredStep : null;
+  let step;
+  if (declared && (!minDiff || declared > minDiff * 0.9) && aligned(values[0], declared)) step = declared;
+  else if (minDiff && aligned(values[0], minDiff)) step = minDiff;
+  else if (!minDiff) step = declared || 1;
+  else return irregular(minDiff);
+  // Patch centres are measured from the segment start, so the first centre is expected at step / 2.
+  const half = step / 2;
+  const fromStart = values[0] > half && aligned(half, step);
+  const origin = fromStart ? half : values[0];
+  let count = Math.round((values[values.length - 1] - origin) / step) + 1;
+  if (Math.abs(origin - half) < 0.05 * step && Number.isInteger(declaredCount) && declaredCount > count) count = declaredCount;
+  if (count > 5000) return irregular(minDiff || step);
+  return { centres: Array.from({ length: count }, (_, i) => origin + i * step), step, index: v => Math.round((v - origin) / step) };
+}
 
 function makeSlipGrid(segment, index) {
-  const patches = segment.patches || [];
-  const xs = [...new Set(patches.map(p => p.along_strike_km))].sort((a, b) => a - b);
-  const ys = [...new Set(patches.map(p => p.down_dip_km))].sort((a, b) => a - b);
-  const xIndex = new Map(xs.map((x, i) => [x, i]));
-  const yIndex = new Map(ys.map((y, i) => [y, i]));
+  const pg = segment.patch_grid || {};
+  const patches = (segment.patches || []).filter(p => Number.isFinite(p.along_strike_km) && Number.isFinite(p.down_dip_km));
+  const ux = [...new Set(patches.map(p => p.along_strike_km))].sort((a, b) => a - b);
+  const uy = [...new Set(patches.map(p => p.down_dip_km))].sort((a, b) => a - b);
+  let ax = ux.length ? gridAxis(ux, pg.patch_length_km, pg.n_along_strike) : { centres: [], step: 1, index: () => 0 };
+  let ay = uy.length ? gridAxis(uy, pg.patch_width_km, pg.n_down_dip) : { centres: [], step: 1, index: () => 0 };
+  if (ax.centres.length * ay.centres.length > 250000) {
+    // Implausibly large regular grid: index the distinct patch positions instead.
+    ax = { centres: ux, step: ax.step, index: v => ux.indexOf(v) };
+    ay = { centres: uy, step: ay.step, index: v => uy.indexOf(v) };
+  }
+  const xs = ax.centres, ys = ay.centres;
   const grid = ys.map(() => Array(xs.length).fill(null));
-  patches.forEach(p => { grid[yIndex.get(p.down_dip_km)][xIndex.get(p.along_strike_km)] = p; });
-  const label = segment.name || segment.label || `Segment ${index + 1}`;
-  return { segment, label, xs, ys, grid };
+  patches.forEach(p => {
+    const xi = ax.index(p.along_strike_km), yi = ay.index(p.down_dip_km);
+    if (yi >= 0 && yi < ys.length && xi >= 0 && xi < xs.length) grid[yi][xi] = p;
+  });
+  const emptyCols = new Set(xs.map((_, xi) => xi).filter(xi => grid.every(row => !row[xi])));
+  const emptyRows = new Set(ys.map((_, yi) => yi).filter(yi => grid[yi].every(p => !p)));
+  const aspect = Math.min(5, Math.max(0.2, ay.step / ax.step));  // physical cell height / width
+  const label = segmentLabel(segment, index);
+  return { segment, label, xs, ys, grid, nx: xs.length, ny: ys.length, dx: ax.step, dy: ay.step, aspect, emptyCols, emptyRows };
 }
 
 function slipLegendHtml(vmax) {
   return `<span>0 m</span><span class="slip-key-gradient"></span><span>${vmax.toFixed(2)} m</span>`;
+}
+
+// Draws one grid cell: slip colour, light grey for a missing patch, hatching for an empty row/column.
+function drawSlipCell(ctx, g, xi, yi, x, y, w, h, vmax) {
+  const p = g.grid[yi][xi];
+  if (g.emptyCols.has(xi) || g.emptyRows.has(yi)) {
+    ctx.fillStyle = "#eef0f3";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "#b5bcc6";
+    ctx.lineWidth = Math.max(0.6, Math.min(w, h) * 0.08);
+    ctx.beginPath();
+    ctx.moveTo(x, y + h);
+    ctx.lineTo(x + w, y);
+    ctx.stroke();
+    return;
+  }
+  ctx.fillStyle = p && Number.isFinite(Number(p.slip_m)) ? slipColor(Number(p.slip_m), vmax) : "#d7dce1";
+  ctx.fillRect(x, y, w, h);
 }
 
 function renderPatchGrid(m) {
@@ -753,8 +1503,13 @@ function renderPatchGrid(m) {
     slipGridState = null;
     return;
   }
-  const grids = available.map((s, i) => makeSlipGrid(s, i));
-  const vmax = Math.max(0, ...available.flatMap(seg => seg.patches.map(p => Number(p.slip_m) || 0)));
+  const grids = available.map(s => makeSlipGrid(s, (m.fault_segments || []).indexOf(s))).filter(g => g.nx && g.ny);
+  if (!grids.length) {
+    wrap.innerHTML = `<div class="schematic-note">Patch positions are missing — the slip grid cannot be drawn.</div>`;
+    slipGridState = null;
+    return;
+  }
+  const vmax = modelSlipMax(m);
   slipGridState = { model: m, grids, vmax };
 
   grids.forEach((g, index) => {
@@ -763,40 +1518,64 @@ function renderPatchGrid(m) {
     const heading = document.createElement("div");
     heading.className = "slip-segment-heading";
     const label = document.createElement("span");
-    label.textContent = grids.length > 1 ? `${g.label} · ${g.xs.length} × ${g.ys.length}` : `${g.xs.length} × ${g.ys.length} subfaults`;
+    label.textContent = grids.length > 1 ? `${g.label} · ${g.nx} × ${g.ny}` : `${g.nx} × ${g.ny} subfaults`;
     const expand = document.createElement("button");
     expand.type = "button";
     expand.className = "slip-expand";
     expand.textContent = "⤢ Expand";
     expand.setAttribute("aria-label", `Expand slip viewer for ${g.label}`);
-    expand.addEventListener("click", () => openSlipViewer(index));
+    expand.addEventListener("click", () => openSlipViewer(index, expand));
     heading.append(label, expand);
 
+    const plot = document.createElement("div");
+    plot.className = "slip-plot";
+    const axisY = document.createElement("div");
+    axisY.className = "axis-y";
+    axisY.innerHTML = `<span class="ax-min">${escapeHtml(fmtKm(g.ys[0]))}</span>` +
+      `<span class="ax-cap">down dip (km) <span class="ax-arrow">↓</span></span><span class="ax-max">${escapeHtml(fmtKm(g.ys[g.ny - 1]))}</span>`;
     const box = document.createElement("div");
     box.className = "slip-overview-wrap";
     const canvas = document.createElement("canvas");
     canvas.className = "slip-overview";
-    canvas.width = g.xs.length * 12;
-    canvas.height = g.ys.length * 12;
+    const cw = 12, ch = Math.max(3, Math.round(12 * g.aspect));
+    canvas.width = g.nx * cw;
+    canvas.height = g.ny * ch;
     canvas.title = "Open the fullscreen viewer to zoom, pan, and inspect individual patches";
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `Slip distribution of ${g.label}: ${g.nx} columns along strike by ${g.ny} rows down dip, maximum ${vmax.toFixed(2)} m`);
     const ctx = canvas.getContext("2d");
     g.grid.forEach((row, yi) => row.forEach((p, xi) => {
-      ctx.fillStyle = p && Number.isFinite(Number(p.slip_m)) ? slipColor(Number(p.slip_m), vmax) : "#d7dce1";
-      ctx.fillRect(xi * 12, yi * 12, 12, 12);
+      drawSlipCell(ctx, g, xi, yi, xi * cw, yi * ch, cw, ch, vmax);
       ctx.strokeStyle = "rgba(255,255,255,.55)";
       ctx.lineWidth = 0.6;
-      ctx.strokeRect(xi * 12 + 0.3, yi * 12 + 0.3, 11.4, 11.4);
+      ctx.strokeRect(xi * cw + 0.3, yi * ch + 0.3, cw - 0.6, ch - 0.6);
     }));
     box.appendChild(canvas);
+    const axisX = document.createElement("div");
+    axisX.className = "axis-x";
+    axisX.innerHTML = `<span>${escapeHtml(fmtKm(g.xs[0]))}</span>` +
+      `<span class="ax-cap">along strike (km) →<span class="ax-cap-y"> · down dip ↓</span></span>` +
+      `<span>${escapeHtml(fmtKm(g.xs[g.nx - 1]))}</span>`;
+    plot.append(axisY, box, axisX);
+
     const legend = document.createElement("div");
     legend.className = "slip-key";
     legend.innerHTML = slipLegendHtml(vmax);
-    section.append(heading, box, legend);
+    section.append(heading, plot, legend);
+    if (g.emptyCols.size || g.emptyRows.size) {
+      const gaps = document.createElement("div");
+      gaps.className = "grid-gaps";
+      const parts = [];
+      if (g.emptyCols.size) parts.push(`${g.emptyCols.size} column(s)`);
+      if (g.emptyRows.size) parts.push(`${g.emptyRows.size} row(s)`);
+      gaps.textContent = `Hatched: ${parts.join(" and ")} without any patch in the record.`;
+      section.appendChild(gaps);
+    }
     wrap.appendChild(section);
   });
   const note = document.createElement("div");
   note.className = "schematic-note";
-  note.textContent = "Full fault-plane grid shown, no horizontal scrolling. Top = shallowest down-dip row; local coordinates only.";
+  note.textContent = "Axis values are patch-centre positions in the fault plane. Top = shallowest down-dip row; local coordinates only.";
   wrap.appendChild(note);
   fitSlipOverviews();
 }
@@ -805,12 +1584,18 @@ function fitSlipOverviews() {
   // Maximize overview size within panel width and comfortable viewport height,
   // retaining the subfault grid's physical cell aspect ratio.
   document.querySelectorAll(".slip-overview").forEach(c => {
-    const available = c.parentElement.clientWidth;
-    const maxHeight = Math.max(100, Math.min(window.innerHeight * 0.45, 440));
-    if (!available || !c.width || !c.height) return;
+    const section = c.closest(".slip-segment");
+    const plot = c.closest(".slip-plot");
+    const axisWidth = 38, border = 2;  // y-axis column + gap; canvas border (border-box sizing)
+    const available = section.clientWidth - axisWidth - border;
+    const maxHeight = Math.max(100, Math.min(window.innerHeight * 0.45, 440)) - border;
+    if (available <= 0 || !c.width || !c.height) return;
     const scale = Math.min(available / c.width, maxHeight / c.height);
-    c.style.width = (c.width * scale) + "px";
-    c.style.height = (c.height * scale) + "px";
+    const w = c.width * scale, h = c.height * scale;
+    c.style.width = (w + border) + "px";
+    c.style.height = (h + border) + "px";
+    plot.style.gridTemplateColumns = `34px ${w + border}px`;
+    section.classList.toggle("compact-y", h < 110);
   });
 }
 
@@ -823,10 +1608,11 @@ function viewerElements() {
   };
 }
 
-function openSlipViewer(index) {
+function openSlipViewer(index, opener) {
   if (!slipGridState) return;
   const { modal } = viewerElements();
   slipViewer.active = index;
+  slipViewer.opener = opener || document.activeElement;
   document.getElementById("slipModalTitle").textContent = slipGridState.model.event.name;
   const select = document.getElementById("slipSegmentSelect");
   select.replaceChildren();
@@ -847,11 +1633,17 @@ function openSlipViewer(index) {
 }
 
 function closeSlipViewer() {
-  viewerElements().modal.hidden = true;
-  viewerElements().info.style.display = "none";
+  const { modal, info, viewport } = viewerElements();
+  if (modal.hidden) return;
+  modal.hidden = true;
+  info.style.display = "none";
   document.body.style.overflow = "";
   slipViewer.dragging = false;
-  viewerElements().viewport.classList.remove("dragging");
+  viewport.classList.remove("dragging");
+  // Return focus to the control that opened the viewer.
+  const opener = slipViewer.opener;
+  slipViewer.opener = null;
+  if (opener && opener.isConnected && typeof opener.focus === "function") opener.focus();
 }
 
 function resetSlipView() {
@@ -864,10 +1656,10 @@ function resetSlipView() {
 
 function slipViewerTransform(width, height, g) {
   const inset = 20;
-  const base = Math.max(0.01, Math.min((width - inset * 2) / g.xs.length, (height - inset * 2) / g.ys.length));
-  const cell = base * slipViewer.zoom;
-  return { cell, x: (width - g.xs.length * cell) / 2 + slipViewer.panX,
-    y: (height - g.ys.length * cell) / 2 + slipViewer.panY };
+  const base = Math.max(0.01, Math.min((width - inset * 2) / g.nx, (height - inset * 2) / (g.ny * g.aspect)));
+  const cw = base * slipViewer.zoom, ch = cw * g.aspect;
+  return { cw, ch, x: (width - g.nx * cw) / 2 + slipViewer.panX,
+    y: (height - g.ny * ch) / 2 + slipViewer.panY };
 }
 
 function drawSlipViewer() {
@@ -885,14 +1677,13 @@ function drawSlipViewer() {
   ctx.imageSmoothingEnabled = false;
   const t = slipViewerTransform(w, h, g);
   g.grid.forEach((row, yi) => row.forEach((p, xi) => {
-    const x = t.x + xi * t.cell, y = t.y + yi * t.cell;
-    if (x + t.cell < 0 || y + t.cell < 0 || x > w || y > h) return;
-    ctx.fillStyle = p && Number.isFinite(Number(p.slip_m)) ? slipColor(Number(p.slip_m), slipGridState.vmax) : "#d7dce1";
-    ctx.fillRect(x, y, t.cell + 0.2, t.cell + 0.2);
-    if (t.cell >= 9) {
+    const x = t.x + xi * t.cw, y = t.y + yi * t.ch;
+    if (x + t.cw < 0 || y + t.ch < 0 || x > w || y > h) return;
+    drawSlipCell(ctx, g, xi, yi, x, y, t.cw + 0.2, t.ch + 0.2, slipGridState.vmax);
+    if (Math.min(t.cw, t.ch) >= 9) {
       ctx.strokeStyle = "rgba(255,255,255,.6)";
-      ctx.lineWidth = Math.min(1.2, t.cell * 0.05);
-      ctx.strokeRect(x, y, t.cell, t.cell);
+      ctx.lineWidth = Math.min(1.2, Math.min(t.cw, t.ch) * 0.05);
+      ctx.strokeRect(x, y, t.cw, t.ch);
     }
   }));
 }
@@ -905,13 +1696,13 @@ function zoomSlipView(factor, cursorX = null, cursorY = null) {
   if (cursorX == null) cursorX = w / 2;
   if (cursorY == null) cursorY = h / 2;
   const oldT = slipViewerTransform(w, h, g);
-  const localX = (cursorX - oldT.x) / oldT.cell;
-  const localY = (cursorY - oldT.y) / oldT.cell;
+  const localX = (cursorX - oldT.x) / oldT.cw;
+  const localY = (cursorY - oldT.y) / oldT.ch;
   slipViewer.zoom = Math.max(1, Math.min(slipViewer.zoom * factor, 36));
   // Recompute using the actual fitted scale; keep the chosen patch under the cursor.
   const t = slipViewerTransform(w, h, g);
-  slipViewer.panX += cursorX - (t.x + localX * t.cell);
-  slipViewer.panY += cursorY - (t.y + localY * t.cell);
+  slipViewer.panX += cursorX - (t.x + localX * t.cw);
+  slipViewer.panY += cursorY - (t.y + localY * t.ch);
   if (slipViewer.zoom === 1) { slipViewer.panX = 0; slipViewer.panY = 0; }
   drawSlipViewer();
 }
@@ -921,8 +1712,8 @@ function slipCellAt(localX, localY) {
   const { viewport } = viewerElements();
   const g = slipGridState.grids[slipViewer.active];
   const t = slipViewerTransform(viewport.clientWidth, viewport.clientHeight, g);
-  const xi = Math.floor((localX - t.x) / t.cell), yi = Math.floor((localY - t.y) / t.cell);
-  if (xi < 0 || yi < 0 || xi >= g.xs.length || yi >= g.ys.length) return null;
+  const xi = Math.floor((localX - t.x) / t.cw), yi = Math.floor((localY - t.y) / t.ch);
+  if (xi < 0 || yi < 0 || xi >= g.nx || yi >= g.ny) return null;
   return { patch: g.grid[yi][xi], col: xi, row: yi, g };
 }
 
@@ -936,7 +1727,21 @@ document.getElementById("slipSegmentSelect").addEventListener("change", e => {
   resetSlipView();
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && !viewerElements().modal.hidden) closeSlipViewer();
+  const { modal } = viewerElements();
+  if (modal.hidden) return;
+  if (e.key === "Escape") { closeSlipViewer(); return; }
+  if (e.key !== "Tab") return;
+  // Keep keyboard focus inside the open dialog.
+  const focusable = [...modal.querySelectorAll("button, select")].filter(el => !el.hidden && !el.disabled);
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+    e.preventDefault();
+    first.focus();
+  }
 });
 document.getElementById("slipModal").addEventListener("click", e => {
   if (e.target === e.currentTarget) closeSlipViewer();
@@ -981,88 +1786,177 @@ slipViewport.addEventListener("pointermove", e => {
   const hit = slipCellAt(x, y);
   const info = viewerElements().info;
   if (!hit) { info.style.display = "none"; return; }
-  info.textContent = hit.patch
-    ? `Slip: ${slipNumber(hit.patch.slip_m)}\nAlong strike: ${hit.patch.along_strike_km} km\nDown dip: ${hit.patch.down_dip_km} km${Number.isFinite(hit.patch.depth_km) ? `\nDepth: ${hit.patch.depth_km.toFixed(2)} km` : ""}`
-    : `No patch reported\nGrid cell ${hit.col + 1}, ${hit.row + 1}`;
+  const p = hit.patch;
+  info.textContent = p
+    ? `Slip: ${slipNumber(p.slip_m)}\nAlong strike: ${p.along_strike_km} km\nDown dip: ${p.down_dip_km} km` +
+      (Number.isFinite(p.depth_km) ? `\nDepth: ${p.depth_km.toFixed(2)} km` : "") +
+      (Number.isFinite(p.rake_deg) ? `\nRake: ${p.rake_deg}°` : "") +
+      (Number.isFinite(p.rupture_time_s) ? `\nRupture time: ${p.rupture_time_s} s` : "") +
+      (Number.isFinite(p.rise_time_s) ? `\nRise time: ${p.rise_time_s} s` : "")
+    : `No patch reported\nAlong strike ≈ ${fmtKm(hit.g.xs[hit.col])} km, down dip ≈ ${fmtKm(hit.g.ys[hit.row])} km`;
   info.style.display = "block";
   info.style.left = Math.min(x + 14, Math.max(0, r.width - 260)) + "px";
-  info.style.top = Math.min(y + 14, Math.max(0, r.height - 110)) + "px";
+  info.style.top = Math.min(y + 14, Math.max(0, r.height - 140)) + "px";
 });
 window.addEventListener("resize", () => { fitSlipOverviews(); drawSlipViewer(); });
 
-// ---------- live seismicity layer (USGS FDSN event webservice) ----------
-async function loadSeismicity() {
+// ---------- live seismicity layer (EMSC first, USGS as fallback) ----------
+let seismicityRequest = 0;
+
+async function fetchJson(url, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
-    const end = new Date();
-    const start = new Date(end.getTime() - 90 * 24 * 3600 * 1000);
-    const fmt = d => d.toISOString().slice(0, 10);
-    const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson` +
-      `&starttime=${fmt(start)}&endtime=${fmt(end)}` +
-      `&minlatitude=34&maxlatitude=42&minlongitude=19&maxlongitude=30&minmagnitude=2.5`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) throw new Error("HTTP " + res.status);
-    const geo = await res.json();
-    seismicityLayer.clearLayers();
-    geo.features.forEach(f => {
-      const [lon, lat] = f.geometry.coordinates;
-      const mag = f.properties.mag;
-      const d = starSizePx(mag);
-      const mk = L.marker([lat, lon], {
-        icon: L.divIcon({
-          html: starIconHtml("#e67e22", d, false),
-          className: "",
-          iconSize: [d, d], iconAnchor: [d / 2, d / 2]
-        })
-      });
-      const when = new Date(f.properties.time).toISOString().slice(0, 16).replace("T", " ");
-      mk.bindPopup(`<b>M${mag}</b> — ${f.properties.place}<br/>${when} UTC<br/><a href="${f.properties.url}" target="_blank" rel="noopener">USGS event page ↗</a>`);
-      mk.addTo(seismicityLayer);
-    });
-    document.getElementById("seismicityNote").textContent =
-      `Live: ${geo.features.length} event(s), last 90 days, M2.5+ (USGS), fetched ${new Date().toISOString().slice(0,16).replace("T"," ")} UTC`;
-  } catch (err) {
-    document.getElementById("seismicityNote").textContent =
-      "Live seismicity layer unavailable (network/CORS blocked in this environment). Works normally once deployed.";
-    console.warn("Seismicity fetch failed:", err);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
   }
 }
 
+function numberOrNull(v) {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function validQuakes(list) {
+  return list.filter(q => q.lat != null && q.lon != null && Math.abs(q.lat) <= 90 && Math.abs(q.lon) <= 180);
+}
+
+function emscQuakes(geo) {
+  if (!geo || !Array.isArray(geo.features)) throw new Error("unexpected EMSC response");
+  return validQuakes(geo.features.map(f => {
+    const p = (f && f.properties) || {};
+    const c = (f && f.geometry && Array.isArray(f.geometry.coordinates)) ? f.geometry.coordinates : [];
+    return {
+      lat: numberOrNull(p.lat ?? c[1]), lon: numberOrNull(p.lon ?? c[0]), mag: numberOrNull(p.mag),
+      magType: p.magtype, place: p.flynn_region, time: p.time, depth: numberOrNull(p.depth),
+      url: p.unid ? safeHttpUrl("https://www.seismicportal.eu/eventdetails.html?unid=" + encodeURIComponent(String(p.unid))) : null
+    };
+  }));
+}
+
+function usgsQuakes(geo) {
+  if (!geo || !Array.isArray(geo.features)) throw new Error("unexpected USGS response");
+  return validQuakes(geo.features.map(f => {
+    const p = (f && f.properties) || {};
+    const c = (f && f.geometry && Array.isArray(f.geometry.coordinates)) ? f.geometry.coordinates : [];
+    return {
+      lat: numberOrNull(c[1]), lon: numberOrNull(c[0]), mag: numberOrNull(p.mag), magType: p.magType,
+      place: p.place, time: p.time, depth: numberOrNull(c[2]), url: safeHttpUrl(p.url)
+    };
+  }));
+}
+
+function utcText(t) {
+  const d = new Date(t);
+  return Number.isNaN(d.getTime()) ? "time unknown" : d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
+}
+
+function drawSeismicity(quakes, source) {
+  seismicityLayer.clearLayers();
+  quakes.forEach(q => {
+    const d = starSizePx(q.mag);
+    const mk = L.marker([q.lat, q.lon], {
+      keyboard: false,
+      icon: L.divIcon({
+        html: starIconHtml("#e67e22", d, false),
+        className: "",
+        iconSize: [d, d], iconAnchor: [d / 2, d / 2]
+      })
+    });
+    const magText = q.mag != null ? `${q.magType ? String(q.magType) : "M"} ${q.mag.toFixed(1)}` : "M ?";
+    mk.bindPopup(
+      `<b>${escapeHtml(magText)}</b> — ${escapeHtml(q.place || "region not given")}<br/>` +
+      `${escapeHtml(utcText(q.time))}${q.depth != null ? ` · depth ${escapeHtml(Math.abs(q.depth).toFixed(0))} km` : ""}` +
+      (q.url ? `<br/><a class="ep-link" href="${escapeHtml(q.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(source)} event page ↗</a>` : ""));
+    mk.addTo(seismicityLayer);
+  });
+}
+
+async function loadSeismicity() {
+  const token = ++seismicityRequest;
+  const note = document.getElementById("seismicityNote");
+  note.textContent = "Loading recent seismicity…";
+  const end = new Date();
+  const start = new Date(end.getTime() - 90 * 24 * 3600 * 1000);
+  const fmt = d => d.toISOString().slice(0, 19);
+  const area = "&minlatitude=34&maxlatitude=42&minlongitude=19&maxlongitude=30&minmagnitude=2.5";
+  const sources = [
+    { name: "EMSC", parse: emscQuakes,
+      url: `https://www.seismicportal.eu/fdsnws/event/1/query?format=json&starttime=${fmt(start)}&endtime=${fmt(end)}${area}&limit=2000` },
+    { name: "USGS", parse: usgsQuakes,
+      url: `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${fmt(start)}&endtime=${fmt(end)}${area}` }
+  ];
+  for (const source of sources) {
+    try {
+      const quakes = source.parse(await fetchJson(source.url, 15000));
+      if (token !== seismicityRequest) return;
+      drawSeismicity(quakes, source.name);
+      note.textContent = `Live: ${quakes.length} event(s), last 90 days, M2.5+ (source: ${source.name}), ` +
+        `fetched ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`;
+      return;
+    } catch (err) {
+      console.warn(`Seismicity fetch from ${source.name} failed:`, err);
+    }
+  }
+  if (token !== seismicityRequest) return;
+  note.textContent = "Live seismicity unavailable (EMSC and USGS could not be reached from this browser).";
+}
+
 // ---------- init ----------
-buildFilterCheckboxes("styleFilter", allValues("event", "faulting_style"), "style");
-buildFilterCheckboxes("dataFilter", allValues("inversion", "data_types"), "dtype");
+buildFilterCheckboxes("styleFilter", allValues(m => m.event.faulting_style), "style");
+buildFilterCheckboxes("dataFilter", allValues(dataTypesOf), "dtype");
 document.getElementById("searchBox").addEventListener("input", render);
+document.querySelectorAll("[data-filter-set]").forEach(btn => btn.addEventListener("click", () => {
+  const on = btn.dataset.filterValue === "all";
+  document.querySelectorAll(`input[data-filter-group="${btn.dataset.filterSet}"]`).forEach(cb => { cb.checked = on; });
+  render();
+}));
 
 // Layer remains available in Leaflet's layer control, but starts disabled.
-// Fetch recent USGS data only when the user activates that overlay.
+// Fetch recent data only when the user activates that overlay.
 map.on("overlayadd", e => {
   if (e.layer === seismicityLayer) loadSeismicity();
 });
 
 L.control.layers(
   { "Satellite (Esri)": baseSatellite, "Streets": baseStreets, "Terrain": baseTerrain },
-  { "Recent seismicity (USGS, live)": seismicityLayer },
-  { position: "topright", collapsed: false }
+  { [SEISMICITY_LABEL]: seismicityLayer },
+  { position: "topright", collapsed: window.matchMedia("(max-width: 640px)").matches }
 ).addTo(map);
 
-const dataMags = MODELS.map(m => m.event.magnitude);
-const magFloor = Math.floor(Math.min(...dataMags) * 10) / 10;
-const magCeil = Math.ceil(Math.max(...dataMags) * 10) / 10;
+function rangeOf(values, fallbackMin, fallbackMax) {
+  return values.length ? [Math.min(...values), Math.max(...values)] : [fallbackMin, fallbackMax];
+}
+
+const dataMags = MODELS.map(m => finiteNumber(m.event.magnitude)).filter(v => v != null);
+const [magLo, magHi] = rangeOf(dataMags, 4, 8);
 setupDualSlider("magMinSlider", "magMaxSlider", "magFill", "magMinLabel", "magMaxLabel",
-  magFloor, magCeil, 0.1, v => v.toFixed(1),
+  Math.floor(magLo * 10) / 10, Math.ceil(magHi * 10) / 10, 0.1, v => v.toFixed(1),
   (lo, hi) => { magMinVal = lo; magMaxVal = hi; render(); });
 
-const dataYears = MODELS.map(modelYear).filter(y => y != null);
-const yearFloor = dataYears.length ? Math.min(...dataYears) : 1990;
-const yearCeil = dataYears.length ? Math.max(...dataYears) : new Date().getFullYear();
-setupDualSlider("yearMinSlider", "yearMaxSlider", "yearFill", "yearMinLabel", "yearMaxLabel",
-  yearFloor, yearCeil, 1, v => Math.round(v),
-  (lo, hi) => { yearMinVal = lo; yearMaxVal = hi; render(); });
+const thisYear = new Date().getFullYear();
+const [eyLo, eyHi] = rangeOf(MODELS.map(eventYear).filter(y => y != null), 1990, thisYear);
+setupDualSlider("eventYearMinSlider", "eventYearMaxSlider", "eventYearFill", "eventYearMinLabel", "eventYearMaxLabel",
+  eyLo, eyHi, 1, v => String(Math.round(v)),
+  (lo, hi) => { eventYearMin = lo; eventYearMax = hi; render(); });
+
+const [pyLo, pyHi] = rangeOf(MODELS.map(pubYear).filter(y => y != null), 1990, thisYear);
+setupDualSlider("pubYearMinSlider", "pubYearMaxSlider", "pubYearFill", "pubYearMinLabel", "pubYearMaxLabel",
+  pyLo, pyHi, 1, v => String(Math.round(v)),
+  (lo, hi) => { pubYearMin = lo; pubYearMax = hi; render(); });
 
 render();
 document.getElementById("footerNote").innerHTML =
   `Schematic fault-surface projections (spherical-earth approximation) — for exact geometry consult the source publication. ` +
-  `Built ${BUILT_AT} · ${MODEL_COUNT} model(s) · data licensed per-record (see provenance.license). ` +
-  `<span id="seismicityNote">Recent USGS seismicity is off (enable it in map layers).</span>`;
+  `Built ${escapeHtml(BUILT_AT)} · ${escapeHtml(MODEL_COUNT)} model(s) · data licensed per-record (see provenance.license). ` +
+  `<span id="seismicityNote">${escapeHtml(SEISMICITY_LABEL)} is off (enable it in map layers; EMSC, USGS as fallback).</span>`;
+
+window.addEventListener("hashchange", applyHash);
+applyHash();
 </script>
 </body>
 </html>
