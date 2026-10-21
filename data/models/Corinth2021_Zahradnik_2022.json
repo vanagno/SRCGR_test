@@ -52,7 +52,7 @@
   "inversion": {
     "data_types": [
       "strong_motion",
-      "other"
+      "regional_waveforms"
     ],
     "method": "Sub2 slip inversion from apparent source time functions (ASTFs) estimated via empirical Green functions of regional seismic waveforms, followed by finite-fault inversion (Mori-Hartzell method with Dreger STF code); reconstruction of perspective Figure 3b by projective rectification and colorbar sampling.",
     "green_function_model": "Empirical Green function from nearby Mw 4.2 foreshock, combined with ASTF inversion. Not a geodetic-only model.",
@@ -582,6 +582,8 @@
     "compiled_by": "Figure 3b of Zahradník et al. (2022), perspective rectification and colorbar digitization of 9x6 km shallow Sub2 graphic; QA CSV contains per-cell confidence and color measurements. NOT the full 19x15 km inversion plane or Sub1 point-source model.",
     "date_added": "2026-10-21",
     "license": null,
-    "source_file_url": "https://doi.org/10.1029/2022JB024221"
+    "source_file_url": "https://doi.org/10.1029/2022JB024221",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 3b"
   }
 }

@@ -29,7 +29,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Finite-fault inversion of regional 3-component broadband seismic waveforms using 1-km subfaults with slip positivity and smoothing constraints (Dreger-Kaverina style); Figure 5 colorbar digitized for the displayed window.",
     "green_function_model": "Green functions for 1-D velocity model in Novotny et al. (2001), as adopted for regional waveform modelling (refer to original paper).",
@@ -2377,6 +2377,8 @@
     "compiled_by": "Figure 5 PNG extracted from author-provided PDF; image-to-colorbar per-pixel calibration, interior 1-km cell averaging and strict visible-window cropping; QA CSV and visual comparison.",
     "date_added": "2026-10-21",
     "license": null,
-    "source_file_url": "https://doi.org/10.1016/j.tecto.2013.09.002"
+    "source_file_url": "https://doi.org/10.1016/j.tecto.2013.09.002",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 5"
   }
 }

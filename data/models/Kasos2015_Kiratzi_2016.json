@@ -28,7 +28,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Constrained least-squares inversion of regional broadband seismic waveforms, slip positivity, gradient smoothing, moment minimization, variable rake ±45 deg about the nominal rake; figure-digitized scalar total-slip amplitudes from Figure 4.",
     "green_function_model": "Regional broadband synthetic seismograms (see Kiratzi 2016, Section 3); point-source focal mechanism separately calculated from teleseismic P and SH waveforms.",
@@ -11097,6 +11097,8 @@
     "compiled_by": "Digitized by sampling extracted Figure 4 image color against its original 0-70 cm 14-band legend; white rake arrows and red nucleation star excluded; partial/out-of-view cells labeled in QA.",
     "date_added": "2026-10-21",
     "license": null,
-    "source_file_url": null
+    "source_file_url": null,
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 4"
   }
 }

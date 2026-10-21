@@ -4399,6 +4399,8 @@
     "compiled_by": "Figure 3a vector-color digitization from uploaded Melgar et al. (2017) PDF; source-provided 40x12 subfault mesh; aftershock/slip-arrow masking; nearest-neighbor fill only for fully obscured cells",
     "date_added": "2026-10-21",
     "license": null,
-    "source_file_url": "https://doi.org/10.1002/2016JB013452"
+    "source_file_url": "https://doi.org/10.1002/2016JB013452",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 3a"
   }
 }

@@ -1051,6 +1051,8 @@
     "compiled_by": "North-dipping Figure 5 total-slip map: calibrated colorbar digitization using embedded high-resolution graphic; masked red aftershock dots and black contour labels; 18x6 mesh sampled with QA flags.",
     "date_added": "2026-10-21",
     "license": null,
-    "source_file_url": "https://doi.org/10.1016/j.jog.2019.101646"
+    "source_file_url": "https://doi.org/10.1016/j.jog.2019.101646",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 5"
   }
 }

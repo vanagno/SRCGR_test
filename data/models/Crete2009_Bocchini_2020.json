@@ -1050,6 +1050,8 @@
     "compiled_by": "Digitized from user-provided Figure 5",
     "date_added": "2026-10-15",
     "license": null,
-    "source_file_url": "https://doi.org/10.1007/s00024-019-02246-9"
+    "source_file_url": "https://doi.org/10.1007/s00024-019-02246-9",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 5"
   }
 }

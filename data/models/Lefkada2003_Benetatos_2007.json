@@ -31,7 +31,7 @@
   "inversion": {
     "data_types": [
       "teleseismic",
-      "other"
+      "regional_waveforms"
     ],
     "method": "Linearized, slip-positive least-squares finite-fault waveform inversion with first-spatial-derivative smoothing. 30 P and 9 S waveforms from 33 stations (regional and teleseismic); 1 km node spacing; bandpass 0.01–0.2 Hz; 87% variance reduction. Preferred two-segment model, subevent 1 north then subevent 2 south with south rupture initiated 10 s after mainshock; rupture speed 2.4 km/s.",
     "green_function_model": "Frequency-wavenumber Green’s functions computed with IASP91 (10 km distance spacing, 2 km depth spacing), waveforms 0.01–0.2 Hz; rigidity 3.5e10 N/m2.",
@@ -26916,6 +26916,8 @@
     "compiled_by": "Digitized Figure 6b (grayscale; two-segment reconstruction) from user-uploaded Benetatos et al. (2007) PDF and supplied figure crop; pixel masking and legend calibration",
     "date_added": "2026-10-20",
     "license": null,
-    "source_file_url": "https://doi.org/10.1785/0120060123"
+    "source_file_url": "https://doi.org/10.1785/0120060123",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 6b"
   }
 }

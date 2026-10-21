@@ -28,7 +28,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Nonnegative least-squares finite-fault inversion of regional broadband waveforms (13 stations), with Laplacian smoothing, damping and moment minimization; rupture velocity 2.5 km/s and rise time 0.2 s. Digitized from the published Fig. 9 slip color map.",
     "green_function_model": "Regional broadband synthetic Green's functions; time-domain moment-tensor calculations use frequency-wavenumber integration with the Novotny et al. (2001) velocity model.",
@@ -47,7 +47,8 @@
       "top_depth_km": 9.027,
       "reference_point": {
         "latitude": 36.044,
-        "longitude": 25.064
+        "longitude": 25.064,
+        "position": "hypocenter"
       },
       "patch_grid": {
         "n_along_strike": 12,
@@ -1152,6 +1153,8 @@
     "compiled_by": "Figure 9 digitization from user-provided Kiratzi (2013) paper and image",
     "date_added": "2026-10-17",
     "license": null,
-    "source_file_url": "https://doi.org/10.1016/j.tecto.2012.11.019"
+    "source_file_url": "https://doi.org/10.1016/j.tecto.2012.11.019",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 9"
   }
 }

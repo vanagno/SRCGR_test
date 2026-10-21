@@ -31,7 +31,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Finite-fault inversion of normalized empirical source time functions (STFs) from 13 regional broadband stations; source time functions obtained by deconvolution of Mw 4.4 aftershock records and stacking three components, using a radially expanding rupture front and fixed-duration boxcar subfault contributions. Best-fit rupture velocity 2.7 km/s and rise time 1.0 s, approximately 95% variance reduction.",
     "green_function_model": "Empirical Green’s functions (eGF) using the Mw 4.4 earthquake at 2009-05-24 16:23:09.8 UTC, with a half-space ray approximation for differential timing; regional synthetic waveform/moment tensor calculations used Saikia (1994) synthetics and Novotný et al. (2001) Earth model.",
@@ -58,7 +58,10 @@
       "top_depth_km": null,
       "reference_point": {
         "latitude": 41.267,
-        "longitude": 22.696
+        "longitude": 22.696,
+        "position": "hypocenter",
+        "along_strike_km": 7.5,
+        "down_dip_km": 12.0
       },
       "patch_grid": {
         "n_along_strike": 15,
@@ -2799,6 +2802,8 @@
       "Contour lines and hypocenter star hide slip locally; peak may lie between centers.",
       "Unpainted top and left margin cells are assigned 0 as a coding convention.",
       "Individual patch geographic coordinates and absolute source corner are unavailable."
-    ]
+    ],
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 8"
   }
 }

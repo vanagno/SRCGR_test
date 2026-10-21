@@ -33,7 +33,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Empirical Green-function source-time-function inversion using 11 regional stations. Fitted normalized STF shapes with radially expanding rupture front and boxcar subfault time functions. Rupture velocity 2.5 km/s, slip rise time 1.5 s, reported 95.2% variance reduction.",
     "green_function_model": "Empirical Green function from the 14 February 2008 12:08:57 UTC Mw 6.1 thrust earthquake. 0.02–0.2 Hz bandpass waveforms, deconvolution, three-component STF stacks; half-space ray approximation.",
@@ -21698,6 +21698,8 @@
       "Background pure red interpreted as zero; 0–20 cm color bin unresolved.",
       "Spatial sampling mesh is not asserted to be author inversion mesh.",
       "Top depth and per-cell depths are inferred proxies, not original inversion depths."
-    ]
+    ],
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 7"
   }
 }

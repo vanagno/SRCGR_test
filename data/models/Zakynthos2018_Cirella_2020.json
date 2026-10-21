@@ -11468,6 +11468,8 @@
       "Color palette is quantized; peak-bin mids need not reach the reported 1.8m peak.",
       "No inverted peak slip velocities, rise times or onset times reconstructed from this upper slip-only panel.",
       "Smaller SSW patch center and its slip are less constrained than NNE patch."
-    ]
+    ],
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 4a, upper panel"
   }
 }

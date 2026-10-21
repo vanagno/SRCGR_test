@@ -29,7 +29,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "tsunami"
     ],
     "method": "Tsunami waveform inversion of tide-gauge sea-level observations using non-negative least squares (MATLAB lsqnonneg), after Satake (1987, 2014); numerical linear shallow-water tsunami Green functions.",
     "green_function_model": "Okada (1985) elastic seafloor displacement per unit slip, propagated using linear shallow-water numerical tsunami simulations and nested bathymetry grids.",
@@ -48,7 +48,9 @@
       "top_depth_km": 8.0,
       "reference_point": {
         "latitude": 33.94945,
-        "longitude": 25.7984
+        "longitude": 25.7984,
+        "along_strike_km": 15.0,
+        "down_dip_km": 0.0
       },
       "patch_grid": {
         "n_along_strike": 4,
@@ -181,6 +183,8 @@
     "compiled_by": "Digitized for SRCGR from Heidarzadeh and Gusman (2021), Table 2",
     "date_added": "2026-10-17",
     "license": "CC-BY-4.0",
-    "source_file_url": "https://doi.org/10.1186/s40623-021-01394-4"
+    "source_file_url": "https://doi.org/10.1186/s40623-021-01394-4",
+    "data_origin": "digitized_table",
+    "source_figure": "Table 2"
   }
 }

@@ -1838,6 +1838,8 @@
     "compiled_by": "Digitization of discrete slip classes from Figure 8 (page 11) of Famiglietti et al. (2022) PDF. Per-cell categorical majority vote using original six printed palette swatches; arrow and gridline pixels excluded. QA CSV retains every printed interval and representative value; NOT original numerical inversion output.",
     "date_added": "2026-10-21",
     "license": "CC BY 4.0",
-    "source_file_url": "https://doi.org/10.3390/rs14225783"
+    "source_file_url": "https://doi.org/10.3390/rs14225783",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 8"
   }
 }

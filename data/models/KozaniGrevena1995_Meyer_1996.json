@@ -66,6 +66,8 @@
     "compiled_by": "Bonatis, P.",
     "date_added": "2026-08-13",
     "license": "CC-BY-4.0",
-    "source_file_url": "https://example.org/replace-with-real-supplementary-data-link"
-  }
+    "source_file_url": "https://example.org/replace-with-real-supplementary-data-link",
+    "data_origin": "other"
+  },
+  "status": "draft"
 }
