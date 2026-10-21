@@ -12,8 +12,9 @@ push to `main`.
 
 What the page offers:
 
-- A map with one star per earthquake (sized by magnitude), a basemap switcher
-  (satellite by default), a distance-measuring tool and a home control.
+- A map with one star per earthquake (sized by magnitude) at its hypocenter, a
+  basemap switcher (satellite by default), a distance-measuring tool and a home
+  control.
 - A model list grouped by earthquake, with search, magnitude, event-year and
   publication-year sliders, and faulting-style and data-type filters.
 - For the selected model: the source parameters, the fault geometry and slip
@@ -31,7 +32,7 @@ from author-supplied files. Every record says where its numbers come from
 
 | Path | What it is |
 | --- | --- |
-| `schema.json` | JSON Schema (draft 2020-12) that every record must follow. Each field has a `description`. |
+| `schema.json` | JSON Schema (draft 2020-12) that every record must follow. Key fields have a `description`. The sections below explain the rest. |
 | `data/models/*.json` | One file per slip model. These files are the source data, and the build never rewrites them. |
 | `build.py` | Validates the records, matches them to earthquakes and writes `dist/`. |
 | `template.html` | The single-page browser. The build inlines the data into it. |
@@ -50,7 +51,11 @@ from author-supplied files. Every record says where its numbers come from
    `Samos2020_Aktug_2021.json`, `CretanBasin2012_Kiratzi_2013.json` or
    `Lemnos2013_KiratziSvigkas_2013.json`. The file name without `.json` becomes the
    record's permanent ID on the site: it is used in permalinks, in download names
-   and in `data/<id>.json`. Avoid renaming a published file. If one publication gives
+   and in `data/<id>.json`. A name that does not follow the pattern still builds,
+   and the build lists it in one `NOTE` line. `models.json` (in any letter case) is
+   an error, because that name is reserved for `data/models.json`. Avoid renaming a
+   published file, because its permalink changes. If you do rename one, see
+   [Automatic event matching](#automatic-event-matching). If one publication gives
    several alternative models, put each in its own file with a distinguishing file
    name. Such files may share the same `model_id`.
 2. **Start from an existing record** of a similar kind in `data/models/`, then fill in
@@ -68,14 +73,17 @@ from author-supplied files. Every record says where its numbers come from
      bare DOI (`10.xxxx/...`, without `https://doi.org/`). `reference.url` must start
      with `http://` or `https://`.
 3. **Work in progress:** add `"status": "draft"` at the root. The build validates
-   drafts and prints their problems as warnings. Drafts are never published, never
-   matched to earthquakes and never added to the registry. When the record is
-   complete, remove `status` or set it to `"published"`.
+   drafts and only prints their problems. Drafts are never published, never
+   matched to earthquakes and never added to the registry. The data-quality checks
+   run on a draft only once it passes the schema. Until then the build prints
+   `consistency checks skipped (record is not schema-valid)`. A draft that is not
+   valid JSON still stops the build, because the build cannot read its `status`.
+   When the record is complete, remove `status` or set it to `"published"`.
 4. **Check locally** (see [Running locally](#running-locally)) or open a pull
    request. CI runs the same checks, and nothing is deployed until the change is
    on `main`.
-5. **Commit `event_registry.json`** together with the new file if the build changed
-   it.
+5. **Commit `event_registry.json`** together with your change if the build changed
+   it. Adding, renaming or editing a record can change it.
 
 Only a few objects accept extra keys: `reference`, `inversion`, `summary_metrics`,
 `model_variant` and `provenance`. Use them for things like digitization notes. Every
@@ -91,7 +99,7 @@ other object is strict, so a misspelled key there is reported as an error.
 | `source_figure` | The figure or table used, e.g. `"Figure 5"`, `"Figure 3b"`, `"Table 2"`. |
 | `verified_by` | Who checked the digitized or transcribed values against the publication. |
 | `uncertainty_notes` | Digitization resolution, colour-scale quantization and similar. |
-| `license` | Licence of the record. If this is missing, the page shows "not specified". |
+| `license` | Licence of the record. If this is missing, the page shows "not specified", and the build lists the record in one `NOTE` line with all other published records that have no licence. |
 | `source_file_url` | Link to the original supplementary data, or `null`. |
 | `compiled_by`, `date_added` | Who added the record, and when (`YYYY-MM-DD`). |
 
@@ -116,7 +124,7 @@ Each fault segment is a rectangular plane (`strike_deg`, `dip_deg`, `length_km`,
 
 | Given | Meaning on the fault plane |
 | --- | --- |
-| `along_strike_km` and `down_dip_km` | The exact plane coordinates of the point. These override `position`. |
+| `along_strike_km` and `down_dip_km` | The exact plane coordinates of the point. Give both or neither (the schema rejects only one). They override `position` for the placement. If they contradict a `top_left`, `top_center` or `center` position, the build warns (see [Validation](#validation)). |
 | `position: "top_center"` | Midpoint of the top edge. |
 | `position: "top_left"` | The patch-coordinate origin: along strike 0 on the top edge. |
 | `position: "center"` | Centre of the plane. |
@@ -126,6 +134,14 @@ Each fault segment is a rectangular plane (`strike_deg`, `dip_deg`, `length_km`,
 For points below the top edge, `latitude` and `longitude` are the point's surface
 projection. Do not guess `position`: if the paper does not say which point it is,
 leave it out.
+
+**Map star.** A star marks the record's `event.hypocenter`. For an earthquake with
+several models, the star uses the first listed model that can be placed. Only when
+the hypocenter has no coordinates does the page use a reference point instead: one
+with `position: "hypocenter"`, else one with `position: "center"`, else the first
+reference point that has coordinates. Without any of these, it uses the first
+patch with `latitude` and `longitude`. A record with no coordinates at all has no
+star, but it stays in the model list.
 
 ### Data types (`inversion.data_types`)
 
@@ -150,9 +166,12 @@ Contributors do not need to agree on event IDs. `build.py` decides which records
 describe the same earthquake from the origin time, epicenter and magnitude.
 `event.event_id` and `model_id` are not used for this.
 
-Files are processed in sorted file-name order. Each file is compared with every
-earthquake known so far: those in `event_registry.json` and those created earlier
-in the same run.
+A file that already has an earthquake in `event_registry.json` keeps it (see
+below). Every other file is processed in sorted file-name order and compared with
+every earthquake known so far: those in the registry and those created earlier in
+the same run. An earthquake is represented by the current record of its first file
+in sorted file-name order. The data stored in the registry are used only for
+earthquakes that no present file belongs to.
 
 | Comparison | Result |
 | --- | --- |
@@ -164,6 +183,9 @@ in the same run.
 - If there is exactly one match and no other match or possible match, the file
   joins that earthquake.
 - If nothing matches, the file starts a new earthquake.
+- A match or possible match with an earthquake kept `"separate"` (see below) always
+  needs a decision. It is listed under `possible_matches` and is never merged
+  silently.
 - In any other case, the build stops without generating the site or changing the
   registry. It lists the ambiguous files and writes `event_review.json` (with
   `file`, `matches` and `possible_matches` for each). Resolve this with
@@ -172,14 +194,33 @@ in the same run.
   earthquake (shown as a data-quality note) unless an override assigns it. An
   `origin_time` that is present but malformed is an error.
 
+**Renamed files.** A file with no committed assignment, such as a renamed file, can
+take over an earthquake that no present file belongs to any more. It does so when its
+data equal the data stored for that earthquake: the same origin time, magnitude and
+name, plus the same coordinates for a dated record. So a renamed file whose content
+is unchanged keeps its earthquake key. This also works for undated records and for
+records without coordinates. If the data change in the same commit, before a build
+has recorded the new name in the registry, the file is matched normally.
+
 **`event_registry.json`** keeps earthquake keys stable. A file that is already
-assigned stays with its earthquake on later builds. If an edited record no longer
-matches that earthquake, the build prints a note. Keys look like
-`2020-10-30_30-october-2020-samos-aegean-sea`, or `undated_<name>` when there is no
-origin time. The registry contains only earthquakes that have at least one file. Its
-output is deterministic, so rebuilding unchanged data produces no diff. Commit it
-whenever the build changes it. CI warns when a pushed or proposed change leaves it
-out of date.
+assigned stays with its earthquake on later builds, and a key never changes, even
+when the data it was made from change. On every build, each earthquake's
+`origin_time_utc`, `latitude`, `longitude`, `magnitude` and `name` are refreshed from
+its first file (in sorted file-name order), and the page shows that current event
+name. When a committed earthquake changes, the build prints
+`NOTE: registry event '<key>' updated from <file>: ...` with the old and new values.
+If the edited earthquake now matches or possibly matches another one, the note adds
+`it now resembles [...]`. If they are the same earthquake, map the files to one key
+in `event_overrides.json`. If another file of a shared earthquake is now clearly
+different from the earthquake's first file, it stays, and the build prints
+`NOTE: <file>: kept registry event '<key>' although the record no longer matches
+<first file> (...)`.
+
+Keys look like `2020-10-30_30-october-2020-samos-aegean-sea`, or `undated_<name>`
+when there is no origin time. The registry contains only earthquakes that have at
+least one file. Its output is deterministic, so rebuilding unchanged data produces
+no diff. Commit it whenever the build changes it. CI warns when a pushed or proposed
+change leaves it out of date.
 
 **`event_overrides.json`** (optional, in the repository root) maps a model file name
 to an earthquake key, or to `"separate"`:
@@ -193,28 +234,49 @@ to an earthquake key, or to `"separate"`:
 
 - A key must already exist in `event_registry.json` or come from `event_review.json`.
   An unknown key is an error.
-- `"separate"` gives the file its own earthquake, and that earthquake never absorbs
-  other files automatically.
-- An entry for a file that does not exist is ignored, and the build prints a note.
+- `"separate"` gives the file an earthquake that never absorbs other files
+  automatically. A later file that matches or possibly matches it goes to review.
+- If the file shares a committed earthquake with other files, it leaves that
+  earthquake for one of its own only if another file keeps the earthquake through
+  its committed assignment, without an override. The shared earthquake then stays
+  open for new models. Otherwise the file keeps the key, and that earthquake is
+  kept separate.
+- An entry for a file that does not exist, or for a draft, is ignored, and the build
+  prints a note.
 - Overrides take precedence over the registry. Contributor files are never edited
   to resolve matching.
 
 ## Validation
 
-**Errors** stop the build. No site is generated and the registry is left unchanged:
+**Errors** stop the build:
 
-- invalid JSON, reported with file, line, column and context (`NaN` and `Infinity`
-  values are rejected as well);
+- invalid JSON, reported with file, line, column and context. `NaN`, `Infinity` and
+  numbers too large to be finite (such as `1e999` or a 400-digit integer) are
+  rejected as invalid JSON too;
 - schema violations, including format checks: `date-time` for `event.origin_time`,
   `date` for `provenance.date_added`, and `uri` for `reference.url` and
   `provenance.source_file_url`;
 - unknown keys in strict objects;
+- a key named `__proto__` anywhere in a record;
+- text or keys that are not valid Unicode, i.e. that contain unpaired surrogates
+  such as `"\ud800"`;
 - template placeholders left in a published record: any text containing
   `REPLACE_WITH`, URLs on `example.org`, `example.com` or `example.net`, and author
   entries like `et al.`;
+- a record file named `models.json` (in any letter case), because that name is
+  reserved for `data/models.json`;
 - event matching that needs review (see above).
 
-Draft records are validated too, but their problems are only printed as warnings.
+Each error in a record's content names its JSON path, for example
+`at reference/doi: 'REPLACE_WITH_DOI' does not match ...`. Draft records are
+validated too, but their problems are only printed. A file that is not valid JSON
+stops the build even when it is a draft. A file name that does not follow
+`<EventCamelCase><Year>_<Author>_<PubYear>.json` is not an error: the build lists
+such names in one `NOTE` line.
+
+When the build fails, `dist/` and `event_registry.json` are left unchanged. Every
+output is rendered in memory and staged before any file is replaced. The only file
+written on failure is `event_review.json`, when event matching needs review.
 
 **Warnings** are consistency checks. They never stop the build. They are printed
 per file and shown on the page under *Data-quality notes* for the model:
@@ -222,7 +284,14 @@ per file and shown on the page under *Data-quality notes* for the model:
 - the patch count is not `n_along_strike × n_down_dip`, or patch positions are duplicated;
 - `n_along_strike × patch_length_km` differs from `length_km` by more than 2 %, or
   `n_down_dip × patch_width_km` from `width_km`;
-- patch centres lie outside the plane (tolerance: half a patch + 1 %);
+- patches extend beyond the plane: a patch centre lies closer to an edge than half
+  a patch, by more than 1 % of `length_km` or `width_km`. This usually means that
+  corner coordinates were given instead of centres. The patch size is
+  `patch_length_km` or `patch_width_km`, or else the length or width divided by
+  `n_along_strike` or `n_down_dip`;
+- `reference_point.along_strike_km` and `down_dip_km` contradict `position`:
+  `top_left` must be at 0 / 0 km, `top_center` at L/2 / 0 and `center` at L/2 / W/2,
+  within 1 % of the segment length L or width W;
 - patch `depth_km` differs from `top_depth_km + down_dip_km · sin(dip)` by more than
   max(0.5 km, 5 %);
 - `summary_metrics.max_slip_m` differs from the largest patch slip (> 10 % and > 0.02 m);
@@ -231,8 +300,15 @@ per file and shown on the page under *Data-quality notes* for the model:
 - `rupture_area_km2` is more than 1.05 × the summed segment area;
 - Mw and `seismic_moment_Nm` disagree by more than 0.3 magnitude units, using
   Mw = (log10 M0 − 9.1) / 1.5;
-- the record has no `origin_time`, no hypocenter or reference-point coordinates (so
-  it is not shown on the map), or no licence.
+- the record has no `origin_time` (so it is not matched automatically);
+- the record has no hypocenter, reference-point or patch coordinates, so the model
+  has no star on the map (see *Map star* under
+  [Fault geometry](#fault-geometry-reference-point-and-patches)).
+
+For a draft, the warnings are only printed, and only once the draft passes the
+schema. A missing licence is not a per-model warning: the build prints one `NOTE`
+listing the published records without `provenance.license`, and the page shows
+"not specified".
 
 ## Machine-readable outputs
 
@@ -243,9 +319,10 @@ Besides `index.html`, every build writes:
   the source file name without `.json`.
 
 Both contain the records exactly as they are in `data/models/`, without the
-browser-only fields. Drafts are not included. On the deployed site these files sit
-next to `index.html`, and the model panel links to `data/models.json` as *All
-records (JSON)*.
+browser-only fields. Drafts are not included. Files of records that are no longer
+published are removed from `dist/data/`. On the deployed site these files sit next
+to `index.html`, and the model panel links to `data/models.json` as *All records
+(JSON)*.
 
 ## Permalinks
 
@@ -261,20 +338,22 @@ Requires Python 3.11 or newer. CI uses 3.13.
 python3 -m venv .venv
 . .venv/bin/activate              # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-python -m pytest
 python build.py
+python -m pytest
 ```
 
 Then open `dist/index.html` in a browser. The page loads Leaflet and the map tiles
-from the internet. The tests never write into the repository. `python build.py`
-writes `dist/` and updates `event_registry.json`.
+from the internet. `python build.py` writes `dist/` and updates
+`event_registry.json`. When it fails, it leaves both unchanged. The tests build
+into a temporary directory, never into the repository's `dist/` or registry.
 
 ## Continuous integration and deployment
 
 `.github/workflows/deploy.yml` does the following:
 
-- On a pull request: installs `requirements-dev.txt`, runs `python -m pytest -q` and
-  `python build.py`. Nothing is deployed.
+- On a pull request: installs `requirements-dev.txt`, runs `python build.py` and then
+  `python -m pytest -q`. The build runs first, so a problem in a record is reported
+  in the build step with its file and JSON path. Nothing is deployed.
 - On a push to `main`, or a manual run on `main`: the same checks, then uploads
   `dist/` (including `dist/data/`) and deploys it to GitHub Pages.
 
@@ -286,7 +365,7 @@ the file.
 ## Licensing and citation
 
 - The licence of each record is given in its `provenance.license`. The page shows
-  "not specified" when it is missing.
+  "not specified" when it is missing, and the build lists such records in a `NOTE`.
 - Slip values digitized from published figures or tables are derived from the source
   articles, so the publisher's terms for those articles may apply. Cite the original
   publication of any model you use. The model panel has a ready-made citation and a

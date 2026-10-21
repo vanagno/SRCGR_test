@@ -1,7 +1,7 @@
 name: Validate, build and deploy geobrowser
 
-# Pull requests: run the tests and a full build (schema, formats, placeholder
-# guard, event matching) without deploying anything.
+# Pull requests: a full build (schema, formats, placeholder guard, event
+# matching), then the tests, without deploying anything.
 # Pushes to main and manual runs on main: the same checks, then publish dist/
 # (index.html + data/) to GitHub Pages.
 
@@ -38,18 +38,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run tests
-        run: python -m pytest -q
-
+      # The build runs first: a problem in a contributed record is reported here,
+      # with its file and JSON path, rather than inside a failing smoke test.
       - name: Validate models and build site
         run: python build.py
 
       - name: Check that event_registry.json is up to date
         run: |
           if [ -n "$(git status --porcelain -- event_registry.json)" ]; then
-            echo "::warning file=event_registry.json::event_registry.json changed during the build (new or re-assigned model files). Run 'python build.py' locally and commit event_registry.json so earthquake keys stay stable."
+            echo "::warning file=event_registry.json::event_registry.json changed during the build (new, renamed, re-assigned or edited model files). Run 'python build.py' locally and commit event_registry.json so earthquake keys stay stable."
             git --no-pager diff --stat -- event_registry.json
           fi
+
+      - name: Run tests
+        run: python -m pytest -q
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
