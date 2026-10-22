@@ -12,6 +12,7 @@
     "Kasos2015_Kiratzi_2016.json": "2015-04-16_16-april-2015-kasos-island-eastern",
     "Kos2017_Papadopoulos_2019.json": "2017-07-20_20-july-2017-bodrum-kos-east-aegean-sea",
     "Lefkada2003_Benetatos_2007.json": "2003-08-14_14-august-2003-lefkada-ionian-islands",
+    "Lefkada2015_Chousianitis_2016.json": "2015-11-17_17-november-2015-lefkada-greece",
     "Lefkada2015_Melgar_2017.json": "2015-11-17_17-november-2015-lefkada-greece",
     "Lemnos2013_KiratziSvigkas_2013.json": "2013-01-08_8-january-2013-lemnos-island-east-aegean",
     "Lesvos2017_Utkucu_2021.json": "2017-06-12_12-june-2017-karaburun-lesvos-northern",
@@ -101,10 +102,10 @@
       "origin_time_utc": "2015-04-16T18:07:44Z"
     },
     "2015-11-17_17-november-2015-lefkada-greece": {
-      "latitude": 38.6655,
-      "longitude": 20.6002,
+      "latitude": 38.665,
+      "longitude": 20.6,
       "magnitude": 6.5,
-      "name": "17 November 2015 Lefkada, Greece, earthquake",
+      "name": "17 November 2015 Lefkada, Ionian Sea, Greece, earthquake",
       "origin_time_utc": "2015-11-17T07:10:07Z"
     },
     "2017-06-12_12-june-2017-karaburun-lesvos-northern": {
@@ -161,7 +162,7 @@
       "longitude": null,
       "magnitude": 5.9,
       "name": "7 September 1999 Athens earthquake",
-      "origin_time_utc": null
+      "origin_time_utc": "1999-09-07T11:56:50.500000Z"
     },
     "undated_ad-365-crete-earthquake": {
       "latitude": null,

@@ -1,7 +1,8 @@
 # Build output (rebuilt by `python build.py` and by CI)
 dist/
 
-# Written by build.py only when event matching needs a manual decision
+# Written by build.py when event matching needs a decision, or as non-blocking
+# notes for published models without an origin time
 event_review.json
 
 # Python

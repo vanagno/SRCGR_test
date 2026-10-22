@@ -3,8 +3,11 @@
 
 Usage: python build.py
 Contributors need only place model JSON files into data/models/. They do not
-need to coordinate event_id or model_id with other contributors. Source files
-are NEVER rewritten. event_registry.json is generated and should be committed.
+need to coordinate event_id or model_id with other contributors, and may omit
+both (the published copies then carry generated ones). Source files are NEVER
+rewritten. event_registry.json is generated and should be committed.
+event_review.json is written when event matching needs a decision (the build
+fails) or, as non-blocking notes, when published models lack an origin time.
 
 Records with "status": "draft" are validated (problems are reported as
 warnings) but never published. Besides dist/index.html the build writes
@@ -98,24 +101,27 @@ def _observation(model, filename):
 
 
 def _similarity(o, anchor):
+    """('match' | 'possible' | 'different', seconds apart, km apart or None). Never guess a merge:
+    'match' only for near-identical origins; anything close but not identical is 'possible' (needs review)."""
     if not o.get('origin_time_utc') or not anchor.get('origin_time_utc'):
-        return 'different', None, None  # undated records are never merged automatically
+        return 'different', None, None  # without two trusted origin times, event identity cannot be established
     a = _parse_time(o['origin_time_utc'], 'observation')
     b = _parse_time(anchor['origin_time_utc'], 'registry event')
     seconds = abs((a - b).total_seconds())
     if seconds > 300:
         return 'different', seconds, None
-    try:
-        dmag = abs(float(o['magnitude']) - float(anchor['magnitude']))
+    try:  # rounded, so that decimal magnitudes compare as written (6.4 - 6.0 is 0.4, not 0.40000000000000036)
+        dmag = round(abs(float(o['magnitude']) - float(anchor['magnitude'])), 6)
     except (TypeError, ValueError, KeyError):
         dmag = math.inf
     p, q = _coordinates({'hypocenter': o}), _coordinates({'hypocenter': anchor})
-    if p and q:
-        km = _haversine(p, q)
-        if km <= 50 and seconds <= 120 and dmag <= 0.5:
-            return 'match', seconds, km
-        return ('possible' if km <= 150 else 'different'), seconds, km
-    return ('possible' if seconds <= 60 and dmag <= 0.5 else 'different'), seconds, None
+    km = _haversine(p, q) if p and q else None
+    if dmag > 1.5 or (km is not None and km > 50):
+        return 'different', seconds, km
+    if km is not None:
+        return ('match' if seconds <= 5 and km <= 20 and dmag <= 0.5 else 'possible'), seconds, km
+    # No coordinates on one side: only virtually identical UTC times match automatically.
+    return ('match' if seconds <= 1 and dmag <= 0.4 else 'possible'), seconds, None
 
 
 def _slug(text, limit=40):
@@ -142,6 +148,29 @@ def _same_observation(o, stored):
     return all(o[f] == stored.get(f) for f in fields)
 
 
+def _model_id_for(filename, model):
+    """Generate a valid legacy-form model_id for contributors who omit it."""
+    authors = (model.get('reference') or {}).get('authors') or []
+    a = (str(authors[0]).split(',')[0] if authors else 'unknown').split(' ')[-1]
+    author = ''.join(c for c in unicodedata.normalize('NFKD', a).lower() if c in 'abcdefghijklmnopqrstuvwxyz') or 'unknown'
+    year = str((model.get('reference') or {}).get('year') or '2000')
+    if not re.fullmatch(r'\d{4}', year):
+        year = '2000'
+    prefix = hashlib.sha1(filename.encode('utf-8')).hexdigest()[:16]
+    return f'auto{prefix}_{author}_{year}'
+
+
+def _with_ids(filename, model, event_key):
+    """The published copy of a record: a missing model_id or event.event_id is generated (the source file is untouched)."""
+    record = dict(model)
+    if not record.get('model_id'):
+        record['model_id'] = _model_id_for(filename, record)
+    event = record.get('event')
+    if isinstance(event, dict) and not event.get('event_id'):
+        record['event'] = {**event, 'event_id': event_key}
+    return record
+
+
 def group_models(input_models, registry, overrides):
     """Assign every (filename, model) to an earthquake.
 
@@ -149,12 +178,15 @@ def group_models(input_models, registry, overrides):
     with _browser_* keys)] in filename order. Raises MatchError (with review
     entries) when a record cannot be matched unambiguously and ValueError for
     unusable registry/override contents. Contributor event_id/model_id values
-    are informational only and never used here.
+    are informational only and never used here; in the returned copies a
+    missing event.event_id is the event key and a missing model_id is generated.
 
     Event keys are stable, but an event's data (time, place, magnitude, name)
     always come from the current record of its first file in filename order.
     Stored registry data are used only for events that no present file belongs
-    to, so that a renamed file finds its event again.
+    to, so that a renamed file finds its event again. All models of an event
+    share one map position (_browser_event_location): the first file's
+    hypocenter, or else the first file with one.
     """
     known = registry.get('events') if isinstance(registry, dict) else None
     previous = registry.get('assignments') if isinstance(registry, dict) else None
@@ -193,6 +225,8 @@ def group_models(input_models, registry, overrides):
             if name not in overrides and obs[name]['origin_time_utc'] and status == 'different':
                 detail = f'{staying[0]} is undated' if seconds is None else f'{round(seconds)} s apart'
                 detail += '' if km is None else f', {round(km)} km apart'
+                mags = obs[name]['magnitude'], anchors[key]['magnitude']
+                detail += '' if seconds is None or mags[0] == mags[1] else f', magnitude {mags[0]:g} vs {mags[1]:g}'
                 notes.append(f'{name}: kept registry event {key!r} although the record no longer matches {staying[0]} '
                              f'({detail}); add an {OVERRIDES_PATH.name} entry if this is wrong.')
 
@@ -251,14 +285,38 @@ def group_models(input_models, registry, overrides):
             notes.append(f'registry event {key!r} updated from {members[key][0]}: {"; ".join(changed)}'
                          + (f'; it now resembles {near}: map the files to one key in {OVERRIDES_PATH.name} '
                             f'if they are the same earthquake' if near else ''))
-    resolved = [(name, {**models[name],
+    # One map position per earthquake: its first file's hypocenter, else the first located file's.
+    unlocated = {'latitude': None, 'longitude': None}
+    locations = {key: next(({'latitude': obs[n]['latitude'], 'longitude': obs[n]['longitude']} for n in files
+                            if obs[n]['latitude'] is not None), unlocated) for key, files in members.items()}
+    resolved = [(name, {**_with_ids(name, models[name], assignments[name]),
                         '_browser_id': Path(name).stem,
                         '_browser_source_file': name,
                         '_browser_event_key': assignments[name],
                         '_browser_event_name': events[assignments[name]]['name'],
+                        '_browser_event_location': dict(locations[assignments[name]]),
                         '_browser_warnings': []}) for name in names]
     pending = {'version': 1, 'events': events, 'assignments': {name: assignments[name] for name in names}}
     return resolved, pending, notes
+
+
+def undated_warnings(resolved, overrides):
+    """Non-blocking review notes (for event_review.json) on published models without an origin time.
+
+    Files with an event_overrides.json entry have been decided by a maintainer and are not listed.
+    """
+    def dated(model):
+        value = _dict(model.get('event')).get('origin_time')
+        return isinstance(value, str) and bool(value.strip())
+
+    return [{'file': name,
+             'reason': 'missing event.origin_time',
+             'event_key': model['_browser_event_key'],
+             'action': ('Retained as an independent provisional earthquake. '
+                        'Add a sourced UTC origin_time in the contributor JSON '
+                        'or explicitly map the filename to a verified event key '
+                        'in event_overrides.json. Never guess an event match.')}
+            for name, model in resolved if name not in overrides and not dated(model)]
 
 
 # ====== JSON input/output ======
@@ -637,6 +695,7 @@ def main():
         return 1
     for note in match_notes:
         print(f'NOTE: {note}')
+    undated = undated_warnings(resolved, overrides)
 
     models = []
     for filename, model in resolved:
@@ -682,6 +741,14 @@ def main():
         outputs = {data_dir / f"{m['_browser_id']}.json": _json_bytes(record, indent=2) for m, record in zip(models, public)}
         outputs[data_dir / 'models.json'] = _json_bytes(public)
         outputs[REGISTRY_PATH] = _json_bytes(pending_registry, indent=2, sort_keys=True)
+        if undated:
+            outputs[REVIEW_PATH] = _json_bytes({
+                'status': 'non_blocking_metadata_warnings',
+                'warnings': undated,
+                'instructions': ('These models were published separately because their '
+                                 'origin times are missing. The site build succeeded; '
+                                 'add a verified UTC event.origin_time to match automatically, '
+                                 'or use event_overrides.json after manual review.')}, indent=2, sort_keys=True)
         # The data goes in last, so placeholder-like text inside records is never replaced.
         outputs[DIST_PATH] = (template.replace('__BUILT_AT__', datetime.date.today().isoformat())
                               .replace('__MODEL_COUNT__', str(len(models)))
@@ -694,7 +761,8 @@ def main():
         for stale in data_dir.glob('*.json'):
             if stale not in outputs:
                 stale.unlink()
-        REVIEW_PATH.unlink(missing_ok=True)
+        if not undated:
+            REVIEW_PATH.unlink(missing_ok=True)
     except (OSError, UnicodeError) as e:
         print(f'BUILD FAILED writing output: {_printable(e)}')
         return 1
@@ -708,6 +776,11 @@ def main():
         print(f'Drafts validated but not published: {len(drafts)} ({", ".join(drafts)})')
     print(f'Data-quality warnings: {warning_count} in {len(warned)} model(s) (non-fatal)')
     print(f'Persistent registry: {REGISTRY_PATH} (commit this file to version control)')
+    if undated:
+        print(f'\nWARNING: {len(undated)} model(s) lack a verified UTC origin time:')
+        for warning in undated:
+            print(f"  {warning['file']}: standalone provisional event; no automatic merging")
+        print(f'Non-blocking review notes: {REVIEW_PATH}')
     return 0
 
 

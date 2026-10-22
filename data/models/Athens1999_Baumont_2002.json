@@ -4,7 +4,7 @@
   "event": {
     "event_id": "athens1999_09_07",
     "name": "7 September 1999 Athens earthquake",
-    "origin_time": null,
+    "origin_time": "1999-09-07T11:56:50.5Z",
     "magnitude": 5.9,
     "magnitude_type": "Mw",
     "hypocenter": {

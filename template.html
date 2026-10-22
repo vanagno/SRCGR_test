@@ -91,20 +91,27 @@
   .ds-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
 
   #modelList { flex: 1; overflow-y: auto; min-height: 0; }
-  .model-row {
-    display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: var(--panel);
+  /* Earthquake-first list: one row per earthquake; an expanded row lists its slip models. */
+  .event-row {
+    display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; font: inherit; color: var(--ink); background: var(--panel);
     padding: 10px 12px; border: none; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; cursor: pointer;
   }
-  .model-row:hover { background: #f2f3f5; }
-  .model-row:focus-visible { outline-offset: -3px; }
-  .model-row.selected { background: #fbeceb; border-left-color: var(--accent); }
-  .model-row .name { display: block; font-size: 13.5px; font-weight: 600; }
-  .model-row .citation { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
-  .model-row.in-group { padding-left: 24px; }
-  .model-row.in-group .name { font-size: 13px; }
-  .event-head { padding: 9px 12px 5px; background: #f4f5f7; border-bottom: 1px solid var(--line); }
-  .event-head .ev-name { display: block; font-size: 13.5px; font-weight: 650; }
-  .event-head .ev-meta { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .event-row:hover { background: #f2f3f5; }
+  .event-row:focus-visible, .event-model-row:focus-visible { outline-offset: -3px; }
+  .event-row.selected { background: #fbeceb; border-left-color: var(--accent); }
+  .event-row .event-chevron { flex: none; font-size: 12px; color: var(--muted); }
+  .event-row .event-summary { flex: 1; min-width: 0; }
+  .event-row .name { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+  .event-row .citation { display: block; font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .event-models { border-bottom: 1px solid var(--line); background: #fafbfc; padding: 3px 0 5px 16px; }
+  .event-model-row {
+    display: block; width: 100%; text-align: left; font: inherit; color: var(--ink); background: transparent;
+    padding: 8px 9px; border: 0; border-left: 3px solid transparent; cursor: pointer;
+  }
+  .event-model-row:hover { background: #edeff2; }
+  .event-model-row.selected { border-left-color: var(--accent); background: #fbeceb; }
+  .event-model-row .name { display: block; font-size: 12.5px; }
+  .event-model-row .citation { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
   .list-empty { padding: 18px 12px; font-size: 13px; color: var(--muted); }
   .lg-stars { display: flex; align-items: flex-end; justify-content: space-between; gap: 4px; padding: 2px 0; }
   .lg-star { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; font-size: 10px; color: var(--muted); min-width: 31px; }
@@ -142,17 +149,13 @@
   }
   .leaflet-tooltip.measure-tooltip::before { display: none; }
   .leaflet-container a.ep-link { color: var(--accent); }
-  .event-popup .ep-title { font-weight: 650; font-size: 13px; margin-bottom: 6px; }
-  .event-popup .ep-hint { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
-  .event-popup .ep-btn {
-    display: block; width: 100%; text-align: left; font: inherit; font-size: 12.5px; margin: 0 0 4px; padding: 6px 8px;
-    border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink); cursor: pointer;
-  }
-  .event-popup .ep-btn:hover { background: #f2f3f5; }
-  .event-popup .ep-btn small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
 
   #detail { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 16px; min-width: 0; min-height: 0; }
   #detail h2 { font-size: 15.5px; margin: 0 0 2px 0; }
+  .detail-model-choice { margin: 10px 0 12px; padding: 10px; background: #f7f8fa; border: 1px solid var(--line); border-radius: 6px; }
+  .detail-model-choice label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .detail-model-choice select { width: 100%; max-width: 100%; padding: 7px 5px; font: inherit; font-size: 12.5px; color: var(--ink); border: 1px solid #bec4cb; border-radius: 5px; background: #fff; }
+  .detail-model-choice .summary { font-size: 12.5px; }
   #detail .authors { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
   #detail .ref-title { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   #detail table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 14px; }
@@ -210,7 +213,7 @@
   .axis-x .ax-cap-y { display: none; }
   .slip-segment.compact-y .axis-y .ax-cap { display: none; }
   .slip-segment.compact-y .axis-x .ax-cap-y { display: inline; }
-  .slip-overview { display: block; width: auto; height: auto; max-width: 100%; max-height: min(45vh, 440px); border: 1px solid var(--line); image-rendering: pixelated; }
+  .slip-overview { display: block; width: auto; height: auto; max-width: 100%; max-height: min(45vh, 440px); image-rendering: pixelated; }
   .slip-key { display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 8px; }
   .slip-key-gradient { width: min(170px, 56%); height: 9px; background: linear-gradient(to right, rgb(255,245,204), rgb(253,174,97), rgb(178,24,43), rgb(103,0,13)); }
   .schematic-note { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 6px; text-align: center; }
@@ -233,7 +236,11 @@
   .slip-dialog-foot #slipViewerLegend { min-width: 245px; white-space: nowrap; flex-shrink: 0; }
   .slip-dialog-foot #slipViewerLegend .slip-key-gradient { width: 175px; }
   .slip-dialog-foot > div:last-child { flex: 1 1 260px; text-align: right; }
-  @media (max-width: 550px) { .slip-dialog-head { padding: 9px; } .slip-modal-controls { padding: 8px; } #slipModalTitle { font-size: 12px; } }
+  @media (max-width: 550px) {
+    .slip-dialog-head { padding: 9px; } .slip-modal-controls { padding: 8px; }
+    /* Up to two lines, so the model citation after the earthquake name stays visible. */
+    #slipModalTitle { font-size: 12px; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  }
 
   .style-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 
@@ -281,7 +288,7 @@
       </div>
 
       <div class="slider-block">
-        <div class="sb-title" title="From event.origin_time; models without an origin time are always shown">Event year</div>
+        <div class="sb-title" title="From event.origin_time (otherwise a year in the event name or ID); models without any year are always shown">Event year</div>
         <div class="dual-slider">
           <div class="ds-track"></div>
           <div class="ds-fill" id="eventYearFill"></div>
@@ -309,14 +316,14 @@
         <legend>Data type <span class="all-none"><button type="button" class="link-btn" data-filter-set="dtype" data-filter-value="all" aria-label="Select all data types">all</button> / <button type="button" class="link-btn" data-filter-set="dtype" data-filter-value="none" aria-label="Clear all data types">none</button></span></legend>
       </fieldset>
     </div>
-    <div id="modelList" aria-label="Slip models"></div>
+    <div id="modelList" aria-label="Earthquakes and their slip models"></div>
   </div>
 
-  <div id="map" role="region" aria-label="Map of slip models"></div>
+  <div id="map" role="region" aria-label="Map of earthquakes with slip models"></div>
 
   <div id="detail">
     <div class="empty" id="detailEmpty">
-      Select a model from the list or map to see details.<br/><br/>
+      Select an earthquake to explore its published slip models.<br/><br/>
       <a href="data/models.json">All records (JSON)</a>
     </div>
     <div id="detailContent" style="display:none;"></div>
@@ -394,6 +401,7 @@ function starSizePx(magnitude) {
 }
 
 let selectedId = null;
+let expandedEventKey = null;
 let eventLayer = null;
 let faultLayer = null;
 let slipLayer = null;
@@ -487,6 +495,16 @@ function eventYear(m) {
   return match ? Number(match[1]) : null;
 }
 
+// Earthquake year for the event-year filter. Without an origin time, a year in the event name or
+// ID is only a coarse filtering aid; no date is invented or shown as the event date.
+function modelYear(m) {
+  const year = eventYear(m);
+  if (year != null) return year;
+  const ev = m.event || {};
+  const match = `${ev.name || ""} ${ev.event_id || ""}`.match(/(?:18|19|20)\d{2}/);
+  return match ? Number(match[0]) : null;
+}
+
 function eventDateText(m) {
   const t = m.event && m.event.origin_time;
   if (typeof t !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(t)) return null;
@@ -507,17 +525,17 @@ function dataTypesOf(m) {
   return Array.isArray(t) ? t.map(String) : [];
 }
 
-function eventName(m) {
-  return m._browser_event_name || (m.event && m.event.name) || m._browser_id;
+function recordEventName(m) {
+  return String((m.event && m.event.name) || m._browser_event_name || m._browser_id);
 }
 
+// Includes the earthquake's displayed name, so searching for it finds all of its models.
 function searchText(m) {
   const ev = m.event || {}, ref = m.reference || {};
-  return [ev.name, m._browser_event_name, (ref.authors || []).join(" "), ev.region, ev.tectonic_setting,
-    ref.title, ref.journal, ref.doi, m.model_id, m._browser_id]
+  return [ev.name, m._browser_event_name, EVENTS.get(m._browser_event_key).name, (ref.authors || []).join(" "), ev.region,
+    ev.tectonic_setting, ref.title, ref.journal, ref.doi, m.model_id, m._browser_id]
     .filter(v => v != null).join(" ").toLowerCase();
 }
-const SEARCH_TEXT = new Map(MODELS.map(m => [m._browser_id, searchText(m)]));
 
 // 5-pointed star icon used for every modeled earthquake and in the marker-size legend.
 function starIconHtml(color, sizePx, selected) {
@@ -678,6 +696,77 @@ function repPoint(model) {
   return null;
 }
 
+// ---------- earthquakes (build-assigned event keys) ----------
+// Models of one earthquake: by publication year, then citation, then source file.
+function compareEventModels(a, b) {
+  return String(pubYear(a) ?? "").localeCompare(String(pubYear(b) ?? "")) ||
+    publicationCitation(a).localeCompare(publicationCitation(b)) || a._browser_id.localeCompare(b._browser_id);
+}
+
+// One star per earthquake: at the build's event location (shared by all of its models). Older builds
+// lack it; then use the representative point of a model with a hypocentre, else of any model.
+function eventStarPoint(models) {
+  const anchor = models.map(m => m._browser_event_location).find(p => hasCoordinates(p));
+  if (anchor) return [anchor.latitude, anchor.longitude];
+  const located = models.find(m => hasCoordinates(m.event && m.event.hypocenter)) || models.find(m => repPoint(m));
+  return located ? repPoint(located) : null;
+}
+
+// Computed over all records, so an earthquake's name, order and star do not change with the filters.
+const EVENTS = new Map();
+MODELS.forEach(m => {
+  if (!EVENTS.has(m._browser_event_key)) EVENTS.set(m._browser_event_key, { key: m._browser_event_key, models: [] });
+  EVENTS.get(m._browser_event_key).models.push(m);
+});
+EVENTS.forEach(ev => {
+  ev.models.sort(compareEventModels);
+  // The shortest record name is usually the plain, publication-independent one.
+  ev.representative = ev.models.reduce((best, m) => recordEventName(m).length < recordEventName(best).length ? m : best);
+  ev.name = recordEventName(ev.representative);
+  // Origin time (ms) for ordering: the representative's, else that of another dated model.
+  const times = [ev.representative, ...ev.models].filter(eventDateText).map(m => Date.parse(m.event.origin_time));
+  ev.time = times.find(Number.isFinite) ?? null;
+  ev.point = eventStarPoint(ev.models);
+});
+// List order: by origin time (undated last), then name.
+const EVENT_RANK = new Map([...EVENTS.values()].sort((a, b) => {
+  if ((a.time == null) !== (b.time == null)) return a.time == null ? 1 : -1;
+  if (a.time != null && a.time !== b.time) return a.time - b.time;
+  return a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
+}).map((ev, i) => [ev.key, i]));
+const SEARCH_TEXT = new Map(MODELS.map(m => [m._browser_id, searchText(m)]));
+
+// Visible models grouped by earthquake, in list order.
+function groupsFrom(models) {
+  const groups = new Map();
+  models.forEach(m => {
+    const key = m._browser_event_key;
+    if (!groups.has(key)) groups.set(key, { key, event: EVENTS.get(key), models: [] });
+    groups.get(key).models.push(m);
+  });
+  const list = [...groups.values()].sort((a, b) => EVENT_RANK.get(a.key) - EVENT_RANK.get(b.key));
+  list.forEach(g => g.models.sort(compareEventModels));
+  return list;
+}
+
+// Distinguishes the models of one earthquake in the list and in the detail-panel selector.
+function modelVariantLabel(m, peers) {
+  const v = (m.model_variant && typeof m.model_variant === "object") ? m.model_variant : {};
+  const options = [v.label, v.name, v.description, v.fault_orientation, v.variant_id].filter(x => typeof x === "string" && x.trim());
+  if (options.length) return options[0].trim();
+  const variant = String((m.event && m.event.name) || "").match(/(?:north|south)[- ]dipping(?: alternative| model)?/i);
+  if (variant) return variant[0];
+  if (v.phase && v.phase !== "coseismic") return String(v.phase);
+  // Several solutions from one publication stay distinguishable by their source file.
+  if (peers.filter(x => publicationCitation(x) === publicationCitation(m)).length > 1) return m._browser_id;
+  return "";
+}
+
+// "2 slip models", or "1 of 2 slip models" while filters hide some of the earthquake's models.
+function modelCountText(n, total = n) {
+  return n === total ? `${n} slip ${n === 1 ? "model" : "models"}` : `${n} of ${total} slip models`;
+}
+
 // ---------- slip color scale ----------
 function slipColor(v, vmax) {
   const stops = [[255,245,204],[253,174,97],[178,24,43],[103,0,13]];
@@ -747,21 +836,10 @@ function filteredModels() {
     if (!styles.includes(m.event.faulting_style ? String(m.event.faulting_style) : NOT_STATED)) return false;
     const mt = dataTypesOf(m);
     if (!(mt.length ? mt.some(t => dtypes.includes(t)) : dtypes.includes(NOT_STATED))) return false;
-    if (!inRange(eventYear(m), eventYearMin, eventYearMax)) return false;
+    if (!inRange(modelYear(m), eventYearMin, eventYearMax)) return false;
     if (!inRange(pubYear(m), pubYearMin, pubYearMax)) return false;
     return true;
   });
-}
-
-// Models grouped by their build-assigned event, in list order.
-function groupByEvent(models) {
-  const groups = new Map();
-  models.forEach(m => {
-    const key = m._browser_event_key;
-    if (!groups.has(key)) groups.set(key, { key, name: eventName(m), models: [] });
-    groups.get(key).models.push(m);
-  });
-  return [...groups.values()];
 }
 
 // ---------- generic dual-handle range slider (two overlaid <input type=range>) ----------
@@ -938,67 +1016,82 @@ map.addControl(new LegendControl());
 L.control.scale({ position: "bottomright", metric: true, imperial: false }).addTo(map);
 
 // ---------- render ----------
-function modelRow(m, grouped) {
+function modelRow(m, peers) {
   const row = document.createElement("button");
   row.type = "button";
   const selected = m._browser_id === selectedId;
-  row.className = "model-row" + (grouped ? " in-group" : "") + (selected ? " selected" : "");
+  row.className = "event-model-row" + (selected ? " selected" : "");
   row.dataset.modelId = m._browser_id;
+  row.dataset.focusKey = "model:" + m._browser_id;
   if (selected) row.setAttribute("aria-current", "true");
   const name = document.createElement("span");
   name.className = "name";
-  const citation = document.createElement("span");
-  citation.className = "citation";
-  if (grouped) {
-    name.textContent = publicationCitation(m);
-    const types = dataTypesOf(m).join(", ") || "data types not stated";
-    citation.textContent = `${types} · ${modelPhase(m)}`;
-  } else {
-    name.textContent = m.event.name;
-    citation.textContent = publicationCitation(m);
-  }
-  row.append(name, citation);
+  name.textContent = publicationCitation(m);
+  const detail = document.createElement("span");
+  detail.className = "citation";
+  const variant = modelVariantLabel(m, peers);
+  const phase = modelPhase(m);
+  detail.textContent = [variant, dataTypesOf(m).join(", ") || "data types not stated", phase === variant ? "" : phase]
+    .filter(Boolean).join(" · ");
+  row.append(name, detail);
   row.addEventListener("click", () => selectModel(m._browser_id));
   return row;
 }
 
-function eventPopupContent(group) {
-  const div = document.createElement("div");
-  div.className = "event-popup";
-  const title = document.createElement("div");
-  title.className = "ep-title";
-  title.textContent = group.name;
-  const hint = document.createElement("div");
-  hint.className = "ep-hint";
-  hint.textContent = `${group.models.length} models of this event — choose one:`;
-  div.append(title, hint);
-  group.models.forEach(m => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "ep-btn";
-    btn.textContent = publicationCitation(m);
-    const small = document.createElement("small");
-    small.textContent = `${dataTypesOf(m).join(", ") || "data types not stated"} · ${modelPhase(m)}`;
-    btn.appendChild(small);
-    btn.addEventListener("click", e => {
-      map.closePopup();
-      // As for a star click: keep focus on the star only when the choice was made from the keyboard.
-      selectModel(m._browser_id, { focusMarker: e.detail === 0 });
-    });
-    div.appendChild(btn);
-  });
-  return div;
+function eventRow(g, active, expanded) {
+  const row = document.createElement("button");
+  row.type = "button";
+  row.className = "event-row" + (active ? " selected" : "");
+  row.dataset.focusKey = "event:" + g.key;
+  row.setAttribute("aria-expanded", String(expanded));
+  if (expanded) row.setAttribute("aria-controls", "expandedEventModels");
+  const chevron = document.createElement("span");
+  chevron.className = "event-chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  chevron.textContent = expanded ? "▾" : "▸";
+  const summary = document.createElement("span");
+  summary.className = "event-summary";
+  const name = document.createElement("span");
+  name.className = "name";
+  name.textContent = g.event.name;
+  const meta = document.createElement("span");
+  meta.className = "citation";
+  meta.textContent = `${magnitudePlain(g.event.representative)} · ${modelCountText(g.models.length, g.event.models.length)}`;
+  summary.append(name, meta);
+  row.append(chevron, summary);
+  row.addEventListener("click", () => selectEvent(g.key));
+  return row;
+}
+
+// An earthquake row or star: expand it and select its first visible model, or keep the selected model
+// when it belongs to this earthquake. Clicking the expanded row again collapses it; a star always expands.
+function selectEvent(key, opts = {}) {
+  const group = groupsFrom(filteredModels()).find(g => g.key === key);
+  if (!group) return;
+  expandedEventKey = (opts.fromMap || expandedEventKey !== key) ? key : null;
+  if (!group.models.some(m => m._browser_id === selectedId)) {
+    selectModel(group.models[0]._browser_id, { focusMarker: opts.focusMarker });
+    return;
+  }
+  render();
+  if (opts.focusMarker) focusEventMarker(key);
+}
+
+function focusEventMarker(key) {
+  const marker = markerByEvent.get(key);
+  const el = marker && marker.getElement();
+  if (el) el.focus({ preventScroll: true });
 }
 
 let markerByEvent = new Map();
 
 function render() {
   const list = filteredModels();
-  const groups = groupByEvent(list);
+  const groups = groupsFrom(list);
   const selected = selectedId ? MODEL_BY_ID.get(selectedId) : null;
 
   const listEl = document.getElementById("modelList");
-  const focusedId = listEl.contains(document.activeElement) ? document.activeElement.dataset.modelId : null;
+  const focusedKey = listEl.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
   const scrollTop = listEl.scrollTop;
   listEl.replaceChildren();
   if (!list.length) {
@@ -1007,48 +1100,35 @@ function render() {
     empty.textContent = "No models match the current filters.";
     listEl.appendChild(empty);
   }
+  // One row per earthquake; only the expanded one lists its (visible) slip models.
   groups.forEach(g => {
-    if (g.models.length === 1) {
-      listEl.appendChild(modelRow(g.models[0], false));
-      return;
-    }
+    const expanded = expandedEventKey === g.key;
+    listEl.appendChild(eventRow(g, !!selected && selected._browser_event_key === g.key, expanded));
+    if (!expanded) return;
     const block = document.createElement("div");
-    block.className = "event-group";
+    block.className = "event-models";
+    block.id = "expandedEventModels";
     block.setAttribute("role", "group");
-    block.setAttribute("aria-label", g.name);
-    const head = document.createElement("div");
-    head.className = "event-head";
-    const name = document.createElement("span");
-    name.className = "ev-name";
-    name.textContent = g.name;
-    const meta = document.createElement("span");
-    meta.className = "ev-meta";
-    const first = g.models[0];
-    meta.textContent = [magnitudePlain(first), eventYear(first), `${g.models.length} models`].filter(Boolean).join(" · ");
-    head.append(name, meta);
-    block.appendChild(head);
-    g.models.forEach(m => block.appendChild(modelRow(m, true)));
+    block.setAttribute("aria-label", `Slip models of ${g.event.name}`);
+    g.models.forEach(m => block.appendChild(modelRow(m, g.models)));
     listEl.appendChild(block);
   });
   listEl.scrollTop = scrollTop;
-  if (focusedId) {
-    const again = [...listEl.querySelectorAll(".model-row")].find(r => r.dataset.modelId === focusedId);
+  if (focusedKey) {
+    const again = [...listEl.querySelectorAll("button")].find(b => b.dataset.focusKey === focusedKey);
     if (again) again.focus({ preventScroll: true });
   }
 
-  // One star per event, at the first representative point among its visible models.
+  // One star per earthquake (see eventStarPoint); its size follows the representative magnitude.
   if (eventLayer) map.removeLayer(eventLayer);
   eventLayer = L.layerGroup();
   markerByEvent = new Map();
   groups.forEach(g => {
-    let position = null, rep = null;
-    for (const m of g.models) {
-      position = repPoint(m);
-      if (position) { rep = m; break; }
-    }
-    if (!position) return;  // Still shown in the model list and slip grid.
-    const color = styleColor(rep.event.faulting_style);
+    const position = g.event.point;
+    if (!position) return;  // Still shown in the list and slip grid.
+    const rep = g.event.representative;
     const isSelected = !!selected && selected._browser_event_key === g.key;
+    const color = styleColor((isSelected ? selected : rep).event.faulting_style);
     const d = starSizePx(rep.event.magnitude);
     const marker = L.marker(position, {
       icon: L.divIcon({
@@ -1059,49 +1139,21 @@ function render() {
       }),
       zIndexOffset: isSelected ? 1000 : 0
     });
-    const single = g.models.length === 1;
-    const label = single
-      ? `${g.models[0].event.name} — ${magnitudePlain(rep)} · ${publicationCitation(g.models[0])}`
-      : `${g.name} — ${magnitudePlain(rep)} · ${g.models.length} models`;
+    const label = `${g.event.name} — ${magnitudePlain(rep)} · ${modelCountText(g.models.length, g.event.models.length)}`;
     marker.bindTooltip(escapeHtml(label));
     marker.on("add", () => {
       const el = marker.getElement();
-      if (el) el.setAttribute("aria-label", label + (single ? "" : " (choose a model)"));
+      if (el) el.setAttribute("aria-label", label);
     });
-    if (single) {
-      // Focus moves to the new star only for keyboard/assistive clicks (detail 0): a focused star
-      // keeps its tooltip open, which would cover the slip drawn for a mouse selection.
-      marker.on("click", e => selectModel(g.models[0]._browser_id, { focusMarker: !!e.originalEvent && e.originalEvent.detail === 0 }));
-    } else {
-      marker.bindPopup(() => eventPopupContent(g), { minWidth: 220, maxWidth: 300 });
-      // Leaflet closes popups on Escape only while the map container itself has focus. Also close
-      // this one when focus is inside it, and return keyboard focus (Escape, keyboard ×) to the star.
-      marker.once("popupopen", e => {
-        const popupEl = e.popup.getElement();
-        const focusStar = () => { const el = marker.getElement(); if (el) el.focus({ preventScroll: true }); };
-        popupEl.addEventListener("keydown", ev => {
-          if (ev.key !== "Escape") return;
-          focusStar();
-          marker.closePopup();
-        });
-        popupEl.addEventListener("click", ev => {
-          if (ev.detail === 0 && ev.target.closest(".leaflet-popup-close-button")) focusStar();
-        });
-      });
-    }
-    // Leaflet markers are focusable; Enter/Space activate them like a click, Escape closes their popup.
+    // Focus moves to the new star only for keyboard/assistive clicks (detail 0): a focused star
+    // keeps its tooltip open, which would cover the slip drawn for a mouse selection.
+    marker.on("click", e => selectEvent(g.key, { fromMap: true, focusMarker: !!e.originalEvent && e.originalEvent.detail === 0 }));
+    // Leaflet markers are focusable; Enter/Space activate them like a click.
     marker.on("keydown", e => {
       const key = e.originalEvent.key;
-      if (key === "Escape" && marker.isPopupOpen()) { marker.closePopup(); return; }
       if (key !== "Enter" && key !== " ") return;
       e.originalEvent.preventDefault();
-      if (single) {
-        selectModel(g.models[0]._browser_id, { focusMarker: true });
-        return;
-      }
-      marker.openPopup();
-      const firstChoice = marker.getPopup().getElement() && marker.getPopup().getElement().querySelector(".ep-btn");
-      if (firstChoice) firstChoice.focus();
+      selectEvent(g.key, { fromMap: true, focusMarker: true });
     });
     marker.addTo(eventLayer);
     markerByEvent.set(g.key, marker);
@@ -1109,8 +1161,8 @@ function render() {
   eventLayer.addTo(map);
 
   document.getElementById("statsBox").innerHTML =
-    `<b>${list.length}</b> of ${MODELS.length} models shown &middot; ` +
-    `<b>${new Set(MODELS.map(m => m._browser_event_key)).size}</b> distinct events`;
+    `<b>${groups.length}</b> of ${EVENTS.size} earthquakes shown &middot; ` +
+    `<b>${list.length}</b> of ${MODELS.length} slip models`;
 }
 
 // ---------- permalinks ----------
@@ -1145,6 +1197,7 @@ function selectModel(id, opts = {}) {
   closeSlipViewer();
   const m = id != null ? MODEL_BY_ID.get(id) : null;
   selectedId = m ? m._browser_id : null;
+  expandedEventKey = m ? m._browser_event_key : null;
   if (m && opts.updateHash !== false) {
     const want = "#model=" + encodeURIComponent(m._browser_id);
     if (location.hash !== want) location.hash = "model=" + encodeURIComponent(m._browser_id);
@@ -1164,19 +1217,23 @@ function selectModel(id, opts = {}) {
   if (geometry.bounds && geometry.bounds.isValid()) {
     map.fitBounds(geometry.bounds, { padding: [40, 40], maxZoom: 11 });
   } else {
-    const position = repPoint(m);
-    // A model without any coordinates has no star; do not leave another event in view.
+    // Without own coordinates, show the earthquake's star; with none at all, do not leave another event in view.
+    const position = repPoint(m) || EVENTS.get(m._browser_event_key).point;
     if (position) map.setView(position, 9);
     else map.setView(HOME_VIEW.center, HOME_VIEW.zoom);
   }
   if (opts.scrollList) {
-    const row = [...document.querySelectorAll("#modelList .model-row")].find(r => r.dataset.modelId === m._browser_id);
+    // Bring the earthquake row into view, then its selected model row.
+    const head = [...document.querySelectorAll("#modelList .event-row")].find(r => r.dataset.focusKey === "event:" + m._browser_event_key);
+    const row = [...document.querySelectorAll("#modelList .event-model-row")].find(r => r.dataset.modelId === m._browser_id);
+    if (head) head.scrollIntoView({ block: "nearest" });
     if (row) row.scrollIntoView({ block: "nearest" });
   }
-  if (opts.focusMarker) {
-    const marker = markerByEvent.get(m._browser_event_key);
-    const el = marker && marker.getElement();
-    if (el) el.focus({ preventScroll: true });
+  if (opts.focusMarker) focusEventMarker(m._browser_event_key);
+  // The detail panel was rebuilt; keep keyboard focus on the model selector that made the change.
+  if (opts.focusChoice) {
+    const choice = document.getElementById("detailModelChoice");
+    if (choice) choice.focus({ preventScroll: true });
   }
 }
 
@@ -1370,13 +1427,24 @@ function showDetail(m, geometry) {
   const permalink = "#model=" + encodeURIComponent(m._browser_id);
   const recordJsonUrl = "data/" + encodeURIComponent(m._browser_id) + ".json";
   const row = (k, v) => `<tr><td class="k">${k}</td><td>${v}</td></tr>`;
+  // The heading names the earthquake; all of its published models (regardless of filters) are offered here.
+  const ev = EVENTS.get(m._browser_event_key);
+  const choice = ev.models.length > 1
+    ? `<label for="detailModelChoice">Published slip model (${ev.models.length})</label>
+       <select id="detailModelChoice">${ev.models.map(x => {
+         const variant = modelVariantLabel(x, ev.models);
+         return `<option value="${escapeHtml(x._browser_id)}"${x === m ? " selected" : ""}>${escapeHtml(publicationCitation(x) + (variant ? " — " + variant : ""))}</option>`;
+       }).join("")}</select>`
+    : `<span class="summary">Model: ${escapeHtml(publicationCitation(m))}</span>`;
 
   content.innerHTML = `
-    <h2>${escapeHtml(m.event.name)}</h2>
+    <h2>${escapeHtml(ev.name)}</h2>
+    <div class="detail-model-choice">${choice}</div>
     <div class="authors">${escapeHtml((ref.authors || []).join(", "))} (${escapeHtml(ref.year || "?")})</div>
     ${ref.title || ref.journal ? `<div class="ref-title">${escapeHtml(ref.title || "")}${ref.title && ref.journal ? ". " : ""}${ref.journal ? `<em>${escapeHtml(ref.journal)}</em>` : ""}</div>` : ""}
     <div class="badges">${dataOriginBadge(m)}${phase !== "coseismic" ? `<span class="badge phase">${escapeHtml(phase)}</span>` : ""}</div>
     <table>
+      ${recordEventName(m) !== ev.name ? row("Event name in record", escapeHtml(recordEventName(m))) : ""}
       ${row("Event date", escapeHtml(eventDateText(m) || "unknown"))}
       ${row(`Magnitude (${magnitudeSubscript(m.event.magnitude_type)})`, escapeHtml(m.event.magnitude))}
       ${row("Faulting style", `<span class="style-dot" style="background:${styleColor(m.event.faulting_style)}"></span>${escapeHtml(m.event.faulting_style)}`)}
@@ -1419,7 +1487,7 @@ function showDetail(m, geometry) {
       <label class="geo-toggle"><input type="checkbox" id="slipOnMapToggle" ${showSlipOnMap ? "checked" : ""} ${geometry.patchCount ? "" : "disabled"} /> Slip on map${geometry.patchCount ? "" : " (no slip patches to place)"}</label>
       <ul class="geo-notes">${geometry.segments.map(g => `<li><b>${escapeHtml(g.label)}</b>: ${escapeHtml(g.text)}${g.flag ? `<span class="flag">${escapeHtml(g.flag)}</span>` : ""}${g.extra ? ` ${escapeHtml(g.extra)}` : ""}</li>`).join("")}</ul>
       <div class="schematic-note">Surface projection: down-dip offset = d·cos(dip) toward strike + 90° (Aki–Richards); thick line = top edge; zero-slip patches are not drawn.</div>`
-    : `<div class="schematic-note">No geographic anchor in the record — slip shown in fault-plane coordinates only.${repPoint(m) ? " The map star marks the hypocentre." : " The record has no coordinates, so the model has no star on the map."}</div>`}
+    : `<div class="schematic-note">No geographic anchor in the record — slip shown in fault-plane coordinates only.${ev.point ? " The map star marks the earthquake." : " No record of this earthquake has coordinates, so it has no star on the map."}</div>`}
 
     <div class="section-title">Cite</div>
     <div class="cite-block">
@@ -1437,6 +1505,8 @@ function showDetail(m, geometry) {
   document.getElementById("bibText").textContent = bibText;
   document.getElementById("copyCiteBtn").addEventListener("click", e => copyText(citeText, e.currentTarget));
   document.getElementById("copyBibBtn").addEventListener("click", e => copyText(bibText, e.currentTarget));
+  const modelChoice = document.getElementById("detailModelChoice");
+  if (modelChoice) modelChoice.addEventListener("change", () => selectModel(modelChoice.value, { focusChoice: true }));
 
   document.getElementById("downloadBtn").addEventListener("click", () => {
     downloadText(m._browser_id + ".json", JSON.stringify(stripBrowserKeys(m), null, 2) + "\n", "application/json");
@@ -1578,12 +1648,8 @@ function renderPatchGrid(m) {
     canvas.setAttribute("role", "img");
     canvas.setAttribute("aria-label", `Slip distribution of ${g.label}: ${g.nx} columns along strike by ${g.ny} rows down dip, maximum ${vmax.toFixed(2)} m`);
     const ctx = canvas.getContext("2d");
-    g.grid.forEach((row, yi) => row.forEach((p, xi) => {
-      drawSlipCell(ctx, g, xi, yi, xi * cw, yi * ch, cw, ch, vmax);
-      ctx.strokeStyle = "rgba(255,255,255,.55)";
-      ctx.lineWidth = 0.6;
-      ctx.strokeRect(xi * cw + 0.3, yi * ch + 0.3, cw - 0.6, ch - 0.6);
-    }));
+    // No cell gridlines: cells are whole canvas pixels, so adjacent cells meet without seams.
+    g.grid.forEach((row, yi) => row.forEach((p, xi) => drawSlipCell(ctx, g, xi, yi, xi * cw, yi * ch, cw, ch, vmax)));
     box.appendChild(canvas);
     const axisX = document.createElement("div");
     axisX.className = "axis-x";
@@ -1620,15 +1686,15 @@ function fitSlipOverviews() {
   document.querySelectorAll(".slip-overview").forEach(c => {
     const section = c.closest(".slip-segment");
     const plot = c.closest(".slip-plot");
-    const axisWidth = 38, border = 2;  // y-axis column + gap; canvas border (border-box sizing)
-    const available = section.clientWidth - axisWidth - border;
-    const maxHeight = Math.max(100, Math.min(window.innerHeight * 0.45, 440)) - border;
+    const axisWidth = 38;  // y-axis column + gap
+    const available = section.clientWidth - axisWidth;
+    const maxHeight = Math.max(100, Math.min(window.innerHeight * 0.45, 440));
     if (available <= 0 || !c.width || !c.height) return;
     const scale = Math.min(available / c.width, maxHeight / c.height);
     const w = c.width * scale, h = c.height * scale;
-    c.style.width = (w + border) + "px";
-    c.style.height = (h + border) + "px";
-    plot.style.gridTemplateColumns = `34px ${w + border}px`;
+    c.style.width = w + "px";
+    c.style.height = h + "px";
+    plot.style.gridTemplateColumns = `34px ${w}px`;
     section.classList.toggle("compact-y", h < 110);
   });
 }
@@ -1647,7 +1713,8 @@ function openSlipViewer(index, opener) {
   const { modal } = viewerElements();
   slipViewer.active = index;
   slipViewer.opener = opener || document.activeElement;
-  document.getElementById("slipModalTitle").textContent = slipGridState.model.event.name;
+  const model = slipGridState.model;
+  document.getElementById("slipModalTitle").textContent = `${EVENTS.get(model._browser_event_key).name} · ${publicationCitation(model)}`;
   const select = document.getElementById("slipSegmentSelect");
   select.replaceChildren();
   slipGridState.grids.forEach((g, i) => {
@@ -1713,12 +1780,12 @@ function drawSlipViewer() {
   g.grid.forEach((row, yi) => row.forEach((p, xi) => {
     const x = t.x + xi * t.cw, y = t.y + yi * t.ch;
     if (x + t.cw < 0 || y + t.ch < 0 || x > w || y > h) return;
-    drawSlipCell(ctx, g, xi, yi, x, y, t.cw + 0.2, t.ch + 0.2, slipGridState.vmax);
-    if (Math.min(t.cw, t.ch) >= 9) {
-      ctx.strokeStyle = "rgba(255,255,255,.6)";
-      ctx.lineWidth = Math.min(1.2, Math.min(t.cw, t.ch) * 0.05);
-      ctx.strokeRect(x, y, t.cw, t.ch);
-    }
+    // Snap edges to device pixels to avoid hairline seams without drawing gridlines.
+    const left = Math.floor(x * dpr) / dpr;
+    const top = Math.floor(y * dpr) / dpr;
+    const right = Math.ceil((x + t.cw) * dpr) / dpr;
+    const bottom = Math.ceil((y + t.ch) * dpr) / dpr;
+    drawSlipCell(ctx, g, xi, yi, left, top, right - left, bottom - top, slipGridState.vmax);
   }));
 }
 
@@ -1973,7 +2040,7 @@ setupDualSlider("magMinSlider", "magMaxSlider", "magFill", "magMinLabel", "magMa
   (lo, hi) => { magMinVal = lo; magMaxVal = hi; render(); });
 
 const thisYear = new Date().getFullYear();
-const [eyLo, eyHi] = rangeOf(MODELS.map(eventYear).filter(y => y != null), 1990, thisYear);
+const [eyLo, eyHi] = rangeOf(MODELS.map(modelYear).filter(y => y != null), 1990, thisYear);
 setupDualSlider("eventYearMinSlider", "eventYearMaxSlider", "eventYearFill", "eventYearMinLabel", "eventYearMaxLabel",
   eyLo, eyHi, 1, v => String(Math.round(v)),
   (lo, hi) => { eventYearMin = lo; eventYearMax = hi; render(); });

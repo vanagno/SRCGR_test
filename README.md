@@ -15,9 +15,13 @@ What the page offers:
 - A map with one star per earthquake (sized by magnitude) at its hypocenter, a
   basemap switcher (satellite by default), a distance-measuring tool and a home
   control.
-- A model list grouped by earthquake, with search, magnitude, event-year and
-  publication-year sliders, and faulting-style and data-type filters.
-- For the selected model: the source parameters, the fault geometry and slip
+- An earthquake list with one row per earthquake, ordered by origin time. A row
+  expands to list the earthquake's slip models. Search, magnitude, event-year and
+  publication-year sliders, and faulting-style and data-type filters narrow the
+  list and the map (see
+  [Earthquakes and models on the page](#earthquakes-and-models-on-the-page)).
+- For the selected earthquake: a selector of all its published slip models. For
+  the selected model: the source parameters, the fault geometry and slip
   projected on the map, a slip overview with a full-screen viewer, data-quality
   notes, a citation (plain text and BibTeX), and downloads (record JSON, patch CSV).
 - An optional live overlay of recent seismicity (EMSC, with USGS as fallback).
@@ -43,7 +47,7 @@ from author-supplied files. Every record says where its numbers come from
 | `CONTRIBUTING.md` | Short checklist for contributors. |
 | `.github/workflows/deploy.yml` | CI: validates pull requests, and builds and deploys `main` to GitHub Pages. |
 | `dist/` | Build output (not committed). |
-| `event_review.json` | Written only when event matching needs a decision (not committed). |
+| `event_review.json` | Written by the build when event matching needs a decision, or as non-blocking notes when published models have no origin time (not committed). |
 
 ## Adding a slip model
 
@@ -61,12 +65,21 @@ from author-supplied files. Every record says where its numbers come from
 2. **Start from an existing record** of a similar kind in `data/models/`, then fill in
    the values for the new model. Follow the field definitions in `schema.json`.
    - Set `"schema_version": "1.1.0"`. Records written for 1.0.0 stay valid.
-   - Required fields: `schema_version`, `model_id`, `event`, `reference` and
+   - Required fields: `schema_version`, `event`, `reference` and
      `fault_segments`.
-   - `model_id` follows `<event>_<firstauthor>_<year>` in lower case, for example
-     `samos2020_aktug_2021`. The pattern is `^[a-z0-9]+_[a-z]+_[0-9]{4}$`. Like
-     `event.event_id`, it is informational only, so you do not need to coordinate
-     IDs with other contributors.
+   - `model_id` and `event.event_id` are optional and informational only. The build
+     never uses them to match records, so you do not need to coordinate IDs with
+     other contributors. If you give a `model_id`, it follows
+     `<event>_<firstauthor>_<year>` in lower case, for example
+     `samos2020_aktug_2021`. The pattern is `^[a-z0-9]+_[a-z]+_[0-9]{4}$`.
+   - If you leave out `model_id` or `event.event_id` (an empty `event_id` counts as
+     left out), the build fills it in on the published copies: the page, its record
+     downloads and `dist/data/`. `event.event_id` becomes the earthquake key
+     (see [Automatic event matching](#automatic-event-matching)). `model_id` becomes
+     `auto<hash>_<surname>_<year>`: 16 hexadecimal digits derived from the file
+     name, the first author's surname in lower case and `reference.year`. For
+     example, `Samos2020_Aktug_2021.json` gets `autod395802edda05026_aktug_2021`.
+     Your file is not changed.
    - `event.origin_time` is an ISO 8601 UTC time such as `2020-10-30T11:51:26Z`.
      Use `null` only when the time is unknown, for example for historical events.
    - `reference.authors` lists every author, never `"et al."`. `reference.doi` is the
@@ -135,13 +148,20 @@ For points below the top edge, `latitude` and `longitude` are the point's surfac
 projection. Do not guess `position`: if the paper does not say which point it is,
 leave it out.
 
-**Map star.** A star marks the record's `event.hypocenter`. For an earthquake with
-several models, the star uses the first listed model that can be placed. Only when
-the hypocenter has no coordinates does the page use a reference point instead: one
-with `position: "hypocenter"`, else one with `position: "center"`, else the first
-reference point that has coordinates. Without any of these, it uses the first
-patch with `latitude` and `longitude`. A record with no coordinates at all has no
-star, but it stays in the model list.
+**Map star.** The map has one star per earthquake, shared by all of its models. The
+build gives every model of an earthquake the same location (the browser-only field
+`_browser_event_location`): the `event.hypocenter` of the earthquake's first file in
+sorted file-name order or, if that hypocenter has no coordinates, the hypocenter of
+the first file that has them. The star is placed there. Only when no model of the
+earthquake has hypocenter coordinates does the page use other coordinates, from the
+first of its models (by publication year, then citation, then file name) that has
+any: a reference point with `position: "hypocenter"`, else one with
+`position: "center"`, else the first reference point that has coordinates, else the
+first patch with `latitude` and `longitude`. An earthquake whose models have no
+coordinates at all has no star, but it stays in the list. The star's size follows the magnitude of the model the
+earthquake is named after (see
+[Earthquakes and models on the page](#earthquakes-and-models-on-the-page)), and its
+colour the faulting style.
 
 ### Data types (`inversion.data_types`)
 
@@ -164,7 +184,7 @@ star, but it stays in the model list.
 
 Contributors do not need to agree on event IDs. `build.py` decides which records
 describe the same earthquake from the origin time, epicenter and magnitude.
-`event.event_id` and `model_id` are not used for this.
+`event.event_id` and `model_id` are not used for this, and both may be left out.
 
 A file that already has an earthquake in `event_registry.json` keeps it (see
 below). Every other file is processed in sorted file-name order and compared with
@@ -173,12 +193,23 @@ the same run. An earthquake is represented by the current record of its first fi
 in sorted file-name order. The data stored in the registry are used only for
 earthquakes that no present file belongs to.
 
+The rules never guess a merge. Only near-identical origins match. Anything close
+but not identical is a possible match, which needs a decision. The rows are checked
+in order:
+
 | Comparison | Result |
 | --- | --- |
-| Origin times more than 300 s apart | different |
-| Both have coordinates: ≤ 50 km, ≤ 120 s and \|ΔM\| ≤ 0.5 | match |
-| Both have coordinates, otherwise: ≤ 150 km | possible match, otherwise different |
-| Coordinates missing on either side: ≤ 60 s and \|ΔM\| ≤ 0.5 | possible match, otherwise different |
+| Either side has no origin time | different |
+| Origin times more than 300 s apart, or \|ΔM\| > 1.5 | different |
+| Both have coordinates, more than 50 km apart | different |
+| Both have coordinates: ≤ 5 s, ≤ 20 km and \|ΔM\| ≤ 0.5 | match |
+| Both have coordinates, otherwise | possible match |
+| Coordinates missing on either side: ≤ 1 s and \|ΔM\| ≤ 0.4 | match |
+| Coordinates missing on either side, otherwise | possible match |
+
+Coordinates are the latitude and longitude of `event.hypocenter`, and distances are
+great-circle distances between them. The limits are inclusive. Magnitudes are
+compared as written, so 6.4 and 6.0 differ by exactly 0.4.
 
 - If there is exactly one match and no other match or possible match, the file
   joins that earthquake.
@@ -187,12 +218,22 @@ earthquakes that no present file belongs to.
   needs a decision. It is listed under `possible_matches` and is never merged
   silently.
 - In any other case, the build stops without generating the site or changing the
-  registry. It lists the ambiguous files and writes `event_review.json` (with
-  `file`, `matches` and `possible_matches` for each). Resolve this with
-  `event_overrides.json`.
+  registry. It lists the ambiguous files and writes `event_review.json` with a
+  `review` list (`file`, `matches` and `possible_matches` for each). Resolve this
+  with `event_overrides.json`.
 - A record without `origin_time` is never merged automatically. It becomes its own
   earthquake (shown as a data-quality note) unless an override assigns it. An
   `origin_time` that is present but malformed is an error.
+
+**Records without an origin time** do not stop the build. When the build succeeds
+and published records have no `origin_time`, it writes `event_review.json` with
+`"status": "non_blocking_metadata_warnings"` and one entry under `warnings` per
+record (`file`, `reason`, `event_key`, `action`). At the end of its output it
+prints `WARNING: N model(s) lack a verified UTC origin time:` and lists the files.
+Records with an entry in `event_overrides.json` have been decided by a maintainer
+and are not listed. To clear a note, add a sourced UTC `origin_time` to the record,
+or map the file to a verified earthquake key in `event_overrides.json`. When no
+record needs a note, a successful build deletes `event_review.json`.
 
 **Renamed files.** A file with no committed assignment, such as a renamed file, can
 take over an earthquake that no present file belongs to any more. It does so when its
@@ -206,8 +247,12 @@ has recorded the new name in the registry, the file is matched normally.
 assigned stays with its earthquake on later builds, and a key never changes, even
 when the data it was made from change. On every build, each earthquake's
 `origin_time_utc`, `latitude`, `longitude`, `magnitude` and `name` are refreshed from
-its first file (in sorted file-name order), and the page shows that current event
-name. When a committed earthquake changes, the build prints
+its first file (in sorted file-name order). The registry keeps that file's own
+coordinates, even when they are missing. The name the page shows and the position
+of the star follow their own rules (see
+[Earthquakes and models on the page](#earthquakes-and-models-on-the-page), and
+*Map star* under [Fault geometry](#fault-geometry-reference-point-and-patches)).
+When a committed earthquake changes, the build prints
 `NOTE: registry event '<key>' updated from <file>: ...` with the old and new values.
 If the edited earthquake now matches or possibly matches another one, the note adds
 `it now resembles [...]`. If they are the same earthquake, map the files to one key
@@ -217,7 +262,11 @@ different from the earthquake's first file, it stays, and the build prints
 <first file> (...)`.
 
 Keys look like `2020-10-30_30-october-2020-samos-aegean-sea`, or `undated_<name>`
-when there is no origin time. The registry contains only earthquakes that have at
+when there is no origin time. The key is made when the earthquake is first seen. A
+key that starts with `undated_` stays when an origin time is added to the record
+later, for example `undated_7-september-1999-athens-earthquake`. Keys are not shown
+on the page or used in permalinks. They appear in published records only as a
+filled-in `event.event_id`. The registry contains only earthquakes that have at
 least one file. Its output is deterministic, so rebuilding unchanged data produces
 no diff. Commit it whenever the build changes it. CI warns when a pushed or proposed
 change leaves it out of date.
@@ -300,9 +349,12 @@ per file and shown on the page under *Data-quality notes* for the model:
 - `rupture_area_km2` is more than 1.05 × the summed segment area;
 - Mw and `seismic_moment_Nm` disagree by more than 0.3 magnitude units, using
   Mw = (log10 M0 − 9.1) / 1.5;
-- the record has no `origin_time` (so it is not matched automatically);
+- the record has no `origin_time`, so it is not matched automatically. The build
+  also lists it in `event_review.json` (see
+  [Automatic event matching](#automatic-event-matching));
 - the record has no hypocenter, reference-point or patch coordinates, so the model
-  has no star on the map (see *Map star* under
+  cannot be placed on the map. Its earthquake still has a star if another of its
+  models has coordinates (see *Map star* under
   [Fault geometry](#fault-geometry-reference-point-and-patches)).
 
 For a draft, the warnings are only printed, and only once the draft passes the
@@ -318,17 +370,57 @@ Besides `index.html`, every build writes:
 - `data/<id>.json`: one pretty-printed file per published record, where `<id>` is
   the source file name without `.json`.
 
-Both contain the records exactly as they are in `data/models/`, without the
-browser-only fields. Drafts are not included. Files of records that are no longer
-published are removed from `dist/data/`. On the deployed site these files sit next
-to `index.html`, and the model panel links to `data/models.json` as *All records
-(JSON)*.
+Both contain the records as they are in `data/models/`, without the browser-only
+fields. The only difference is that a missing `model_id` or `event.event_id` is
+filled in with the generated value (see [Adding a slip model](#adding-a-slip-model)).
+Drafts are not included. Files of records that are no longer published are removed
+from `dist/data/`. On the deployed site these files sit next to `index.html`, and
+the model panel links to `data/models.json` as *All records (JSON)*.
+
+## Earthquakes and models on the page
+
+The list has one row per earthquake. A row shows the earthquake's name, its
+magnitude and the number of slip models. Rows are ordered by origin time, with
+undated earthquakes last, and then by name.
+
+- **Name.** An earthquake is named after the shortest `event.name` among its
+  published models. That is usually the plainest one. If the selected model's own
+  `event.name` is different, the model panel also shows it as *Event name in
+  record*.
+- **Selecting.** Selecting a row, or the earthquake's star on the map, expands the
+  row and selects the earthquake's first model shown. Models are ordered by
+  publication year, then citation, then file name. If the selected model already
+  belongs to that earthquake, it stays selected. Selecting an expanded row again
+  collapses it. Rows and stars also work with the keyboard (Enter or Space).
+- **Expanded row.** Each model is listed with its citation, a variant label where
+  one is needed, its data types and its phase.
+- **Model panel.** The heading is the earthquake's name. For an earthquake with
+  several models, a *Published slip model (N)* selector below it lists all of them,
+  whatever the filters. Choosing one selects that model and updates the
+  [permalink](#permalinks). An earthquake with one model shows *Model:* and the
+  citation instead.
+- **Variant labels** tell apart the models of one earthquake. The label is the first
+  of `model_variant.label`, `name`, `description`, `fault_orientation` and
+  `variant_id` that is given. Otherwise it is a "north-dipping" or "south-dipping"
+  phrase in `event.name`, else a `model_variant.phase` other than `coseismic`. If
+  none applies and several models have the same citation, the file name without
+  `.json` is used.
+- **Filters** apply to models. An earthquake is listed, and has its star, while at
+  least one of its models passes. If filters hide some of its models, its row says,
+  for example, "1 of 2 slip models". The page header counts both:
+  "*X* of *Y* earthquakes shown · *A* of *B* slip models".
+- **Event year** is the year of `event.origin_time`. For a record without an origin
+  time, the event-year slider uses the first year from 1800 to 2099 found in
+  `event.name`, else in `event.event_id`. That year is used only for filtering and
+  is never shown as the event date. A record without any year is never hidden by
+  the event-year slider. The publication-year slider uses `reference.year`, and a
+  record without one is never hidden by it.
 
 ## Permalinks
 
 Selecting a model sets the page address to `#model=<id>`, for example
 `index.html#model=Samos2020_Aktug_2021`. Opening such a link, or changing the hash,
-selects that model.
+selects that model and expands its earthquake in the list.
 
 ## Running locally
 
@@ -344,7 +436,9 @@ python -m pytest
 
 Then open `dist/index.html` in a browser. The page loads Leaflet and the map tiles
 from the internet. `python build.py` writes `dist/` and updates
-`event_registry.json`. When it fails, it leaves both unchanged. The tests build
+`event_registry.json`. When it fails, it leaves both unchanged. It may also write or
+delete `event_review.json` (see
+[Automatic event matching](#automatic-event-matching)). The tests build
 into a temporary directory, never into the repository's `dist/` or registry.
 
 ## Continuous integration and deployment
