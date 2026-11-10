@@ -8106,6 +8106,8 @@
     "compiled_by": "Colorbar-calibrated digitization of original full-resolution Figure 2a (page 5) from user-provided Chousianitis & Konca 2019 PDF; 891 published 2-km squares preserved, no resampling. Original scalar slip coefficients not available.",
     "date_added": "2026-10-23",
     "license": null,
-    "source_file_url": "https://doi.org/10.1029/2019GL085845"
+    "source_file_url": "https://doi.org/10.1029/2019GL085845",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 2a"
   }
 }

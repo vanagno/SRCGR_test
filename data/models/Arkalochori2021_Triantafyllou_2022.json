@@ -1426,6 +1426,8 @@
     "compiled_by": "Visual digitization of Figure 8(b) from Triantafyllou et al. (2022), following original 15x10 plotted mesh. Data-derived values not original inversion coefficients; see QA CSV and README.",
     "date_added": "2026-10-23",
     "license": "CC BY 4.0",
-    "source_file_url": "https://doi.org/10.3390/geohazards3010006"
+    "source_file_url": "https://doi.org/10.3390/geohazards3010006",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 8b"
   }
 }

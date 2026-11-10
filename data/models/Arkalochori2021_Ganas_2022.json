@@ -653,6 +653,8 @@
     "compiled_by": "Digitization from the perspective slip model in Figure 8 of Ganas et al. (2022). The fault plane was rectified conceptually to a 9 x 7 patch grid and each patch was assigned an approximate slip value from the 0-120 cm colour bar. This is a visual reconstruction for geobrowser use, not the original inversion output.",
     "date_added": "2026-10-22",
     "license": "CC BY 4.0",
-    "source_file_url": "https://doi.org/10.3390/geosciences12060220"
+    "source_file_url": "https://doi.org/10.3390/geosciences12060220",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 8"
   }
 }

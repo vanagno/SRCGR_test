@@ -31,7 +31,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Empirical Green’s function deconvolution of regional broadband horizontal-component waveforms, inversion of source-time functions on a 25 x 25 1-km-square fault mesh.",
     "green_function_model": "Empirical Green’s function: M4.5 aftershock at 20:32:27 UTC on 7 September 1999, with waveforms from regional stations; fault-plane ray paths approximated in a half-space.",
@@ -5700,6 +5700,8 @@
     "compiled_by": "Digitization of Figure 5 from Roumelioti et al. (2003), PDF page 6. Original 25x25 1-km panel, interpreted gray classes. QA estimates and confidence flags in companion CSV; published summary values retained separately. Reconstructed sampled peak 0.75 m; total printed positive cells 76/625. Not original inversion coefficient file.",
     "date_added": "2026-10-23",
     "license": null,
-    "source_file_url": "https://doi.org/10.1785/0120020053"
+    "source_file_url": "https://doi.org/10.1785/0120020053",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 5"
   }
 }

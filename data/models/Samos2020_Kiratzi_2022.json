@@ -33,7 +33,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Non-negative least squares inversion of regional broadband seismic source-time functions (30 displacement components, 260–460 km). Assumed 1.8 s rise time, 2.2 km/s rupture speed; a 70×25 km plane discretized at 1×1 km, with rake variable ±45° around −98°. Figure 7a is the preferred coseismic solution.",
     "green_function_model": "Frequency-wavenumber Green functions using the 1-D Aegean velocity model of Novotný et al. (2001).",
@@ -12691,6 +12691,8 @@
     "compiled_by": "Colorbar-calibrated per-original-1km-cell sampling of Kiratzi et al. (2022) Fig. 7a, excluding magenta polygon boundary and star. Visible-window model only (70×20 cells); full 70×25 source plane NOT reconstructed. Values are image-derived, not original inversion coefficients. Companion QA CSV documents cellwise overlay and confidence.",
     "date_added": "2026-10-23",
     "license": null,
-    "source_file_url": "https://doi.org/10.1007/s10518-021-01239-1"
+    "source_file_url": "https://doi.org/10.1007/s10518-021-01239-1",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 7a"
   }
 }

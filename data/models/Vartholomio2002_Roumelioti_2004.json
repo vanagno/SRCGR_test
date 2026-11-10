@@ -32,7 +32,7 @@
   },
   "inversion": {
     "data_types": [
-      "other"
+      "regional_waveforms"
     ],
     "method": "Broadband empirical Green's-function deconvolution followed by source-time-function inversion (Mori-Hartzell/Dreger), with positivity and spatial derivative smoothing; preferred rupture velocity 2.7 km/s and rise time 0.4 s.",
     "green_function_model": "Empirical Green's functions from a nearby M4.1 event on 30 September 2002, replacing theoretical path/instrument/radiation response in the slip inversion.",
@@ -2956,6 +2956,8 @@
     "compiled_by": "Figure 7 local-window grayscale palette digitization of Roumelioti et al. (2004); includes 320 visible-window image cells, not the full author model. QA records grayscale classes, overlays and uncertainties. Scientific report maximum 0.07 m separately from sampled-grid peak. Compiled from the user-supplied PDF.",
     "date_added": "2026-10-23",
     "license": null,
-    "source_file_url": "https://doi.org/10.1016/j.tecto.2004.06.008"
+    "source_file_url": "https://doi.org/10.1016/j.tecto.2004.06.008",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 7"
   }
 }

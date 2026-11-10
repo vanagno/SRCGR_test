@@ -14482,6 +14482,8 @@
     "compiled_by": "Visual figure-digitization of the reproduced Irmak (2020) adopted model in Toker et al. (2021), Figure 2b, with 80×20 image-resampling cells; no original coefficient grid available. Companion QA image and per-cell CSV include categorical colour classes and masking confidence.",
     "date_added": "2026-10-23",
     "license": null,
-    "source_file_url": "https://doi.org/10.1007/s12517-021-08951-x"
+    "source_file_url": "https://doi.org/10.1007/s12517-021-08951-x",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 2b"
   }
 }

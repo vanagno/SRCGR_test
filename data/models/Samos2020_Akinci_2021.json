@@ -1882,6 +1882,8 @@
     "compiled_by": "Reconstruction of the published Akinci et al. (2021) Figure 4a using geometric map-view rectification and colorbar-calibrated cell sampling; see companion QA PNG and cell_QA CSV. These values are not author-supplied finite-fault coefficients.",
     "date_added": "2026-10-23",
     "license": null,
-    "source_file_url": "https://doi.org/10.1007/s10518-021-01146-5"
+    "source_file_url": "https://doi.org/10.1007/s10518-021-01146-5",
+    "data_origin": "digitized_figure",
+    "source_figure": "Figure 4a"
   }
 }
