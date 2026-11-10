@@ -242,6 +242,37 @@
     #slipModalTitle { font-size: 12px; white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
   }
 
+  /* Compare the slip models of one earthquake: same km scale in every panel + slip-versus-depth chart. */
+  .cmp-open { margin-top: 8px; }
+  #compareModal[hidden] { display: none; }
+  #compareModal { position: fixed; inset: 0; z-index: 2500; background: rgba(15,19,25,.75); padding: clamp(8px, 2.5vw, 28px); display: flex; align-items: center; justify-content: center; }
+  #compareTitle { font-size: 15px; font-weight: 650; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmp-controls label { font-size: 12.5px; display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; }
+  .cmp-group { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 0; }
+  .cmp-ctl-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: 8px; }
+  .cmp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px 18px; }
+  .cmp-section + .cmp-section { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .cmp-h { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 2px 0 8px; font-weight: 600; }
+  .cmp-panels { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: flex-start; margin-top: 8px; }
+  .cmp-panel { margin: 0; min-width: 0; max-width: 100%; }
+  .cmp-panel-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 4px; }
+  .cmp-panel-head .who { font-weight: 600; }
+  .cmp-panel-head .meta { color: var(--muted); font-size: 11.5px; }
+  .cmp-panel canvas { display: block; max-width: 100%; }
+  .cmp-none { font-size: 12px; color: var(--muted); padding: 6px 0; }
+  .cmp-chart svg { display: block; width: 100%; height: auto; }
+  .cmp-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; margin: 8px 0 4px; }
+  .cmp-legend .item { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; }
+  .cmp-legend .meta, .cmp-legend .none { color: var(--muted); }
+  .cmp-info { position: fixed; z-index: 2600; pointer-events: none; display: none; background: rgba(27,31,36,.92); color: #fff; font-size: 12px; padding: 6px 8px; border-radius: 5px; max-width: 320px; white-space: pre-line; }
+  .cmp-table { font-size: 12px; margin-top: 8px; }
+  .cmp-table summary { cursor: pointer; }
+  .cmp-table-wrap { max-height: 260px; overflow: auto; margin-top: 6px; }
+  .cmp-table table { border-collapse: collapse; font-size: 11.5px; }
+  .cmp-table th, .cmp-table td { padding: 2px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  .cmp-table th:first-child, .cmp-table td:first-child { text-align: left; }
+  @media (max-width: 550px) { #compareTitle { font-size: 12px; white-space: normal; } .cmp-body { padding: 10px; } }
+
   .style-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
 
   footer { flex: none; padding: 6px 20px; font-size: 11px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--line); }
@@ -354,6 +385,45 @@
       <div>Left → right: along strike · top → bottom: down dip · hatched: no patches · Wheel or +/−: zoom · Drag: pan · Hover: patch values · Esc: close</div>
     </div>
   </div>
+</div>
+
+<!-- Side-by-side comparison of all slip models of one earthquake. -->
+<div id="compareModal" hidden role="dialog" aria-modal="true" aria-labelledby="compareTitle">
+  <div class="slip-dialog">
+    <div class="slip-dialog-head">
+      <div id="compareTitle">Compare slip models</div>
+      <button type="button" class="slip-tool" id="compareClose" aria-label="Close comparison">✕ Close</button>
+    </div>
+    <div class="slip-modal-controls cmp-controls">
+      <span class="cmp-group" role="radiogroup" aria-label="Colour scale">
+        <span class="cmp-ctl-label">Colour scale</span>
+        <label><input type="radio" name="cmpScale" value="shared" checked /> Shared</label>
+        <label><input type="radio" name="cmpScale" value="own" /> Each model's own maximum</label>
+      </span>
+      <span class="spacer"></span>
+      <span class="cmp-group" role="radiogroup" aria-label="Depth profile">
+        <span class="cmp-ctl-label">Depth profile</span>
+        <label><input type="radio" name="cmpMetric" value="mean" checked /> Mean slip</label>
+        <label><input type="radio" name="cmpMetric" value="share" /> Share of moment</label>
+      </span>
+    </div>
+    <div class="cmp-body">
+      <section class="cmp-section">
+        <h3 class="cmp-h">Slip on a common scale</h3>
+        <div id="cmpScaleLegend" class="slip-key"></div>
+        <div id="cmpPanels" class="cmp-panels"></div>
+        <div class="schematic-note" id="cmpPanelsNote"></div>
+      </section>
+      <section class="cmp-section">
+        <h3 class="cmp-h">Slip versus depth</h3>
+        <div id="cmpChart" class="cmp-chart"></div>
+        <div id="cmpLegend" class="cmp-legend"></div>
+        <details class="cmp-table"><summary>Data table</summary><div class="cmp-table-wrap" id="cmpTable"></div></details>
+        <div class="schematic-note" id="cmpChartNote"></div>
+      </section>
+    </div>
+  </div>
+  <div id="cmpInfo" class="cmp-info"></div>
 </div>
 
 <footer id="footerNote"></footer>
@@ -1195,6 +1265,7 @@ function selectModel(id, opts = {}) {
   // Back/Forward and permalinks can change the model while the fullscreen viewer is open; the
   // viewer shows the current slip grids, which are replaced below, so close it first.
   closeSlipViewer();
+  closeCompare();
   const m = id != null ? MODEL_BY_ID.get(id) : null;
   selectedId = m ? m._browser_id : null;
   expandedEventKey = m ? m._browser_event_key : null;
@@ -1434,7 +1505,8 @@ function showDetail(m, geometry) {
        <select id="detailModelChoice">${ev.models.map(x => {
          const variant = modelVariantLabel(x, ev.models);
          return `<option value="${escapeHtml(x._browser_id)}"${x === m ? " selected" : ""}>${escapeHtml(publicationCitation(x) + (variant ? " — " + variant : ""))}</option>`;
-       }).join("")}</select>`
+       }).join("")}</select>
+       <button type="button" class="btn-mini cmp-open" id="compareBtn">Compare the ${ev.models.length} models ⤢</button>`
     : `<span class="summary">Model: ${escapeHtml(publicationCitation(m))}</span>`;
 
   content.innerHTML = `
@@ -1507,6 +1579,8 @@ function showDetail(m, geometry) {
   document.getElementById("copyBibBtn").addEventListener("click", e => copyText(bibText, e.currentTarget));
   const modelChoice = document.getElementById("detailModelChoice");
   if (modelChoice) modelChoice.addEventListener("change", () => selectModel(modelChoice.value, { focusChoice: true }));
+  const compareBtn = document.getElementById("compareBtn");
+  if (compareBtn) compareBtn.addEventListener("click", () => openCompare(m._browser_event_key, compareBtn));
 
   document.getElementById("downloadBtn").addEventListener("click", () => {
     downloadText(m._browser_id + ".json", JSON.stringify(stripBrowserKeys(m), null, 2) + "\n", "application/json");
@@ -1828,12 +1902,17 @@ document.getElementById("slipSegmentSelect").addEventListener("change", e => {
   resetSlipView();
 });
 document.addEventListener("keydown", e => {
-  const { modal } = viewerElements();
-  if (modal.hidden) return;
-  if (e.key === "Escape") { closeSlipViewer(); return; }
+  const modal = [viewerElements().modal, document.getElementById("compareModal")].find(el => !el.hidden);
+  if (!modal) return;
+  if (e.key === "Escape") {
+    if (modal.id === "slipModal") closeSlipViewer();
+    else closeCompare();
+    return;
+  }
   if (e.key !== "Tab") return;
   // Keep keyboard focus inside the open dialog.
-  const focusable = [...modal.querySelectorAll("button, select")].filter(el => !el.hidden && !el.disabled);
+  const focusable = [...modal.querySelectorAll("button, select, input, summary")]
+    .filter(el => !el.hidden && !el.disabled && el.getClientRects().length);
   if (!focusable.length) return;
   const first = focusable[0], last = focusable[focusable.length - 1];
   if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
@@ -1900,6 +1979,398 @@ slipViewport.addEventListener("pointermove", e => {
   info.style.top = Math.min(y + 14, Math.max(0, r.height - 140)) + "px";
 });
 window.addEventListener("resize", () => { fitSlipOverviews(); drawSlipViewer(); });
+
+// ---------- compare the slip models of one earthquake ----------
+// Categorical colours in fixed order (never cycled), with a dash pattern per model as a colour-free cue.
+const COMPARE_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
+const COMPARE_DASHES = ["", "7 4", "2 3", "9 3 2 3", "4 4", "12 4", "1 4", "6 2 2 2"];
+const compareState = { key: null, geoms: [], scale: "shared", metric: "mean", opener: null, profile: null };
+
+function compareColor(i) { return COMPARE_COLORS[i % COMPARE_COLORS.length]; }
+function compareDash(i) { return COMPARE_DASHES[i % COMPARE_DASHES.length]; }
+
+function compareSwatch(i) {
+  return `<svg width="26" height="10" aria-hidden="true"><line x1="1" y1="5" x2="25" y2="5" stroke="${compareColor(i)}" ` +
+    `stroke-width="2.5" stroke-linecap="round" stroke-dasharray="${compareDash(i)}"/></svg>`;
+}
+
+function compareLabel(m, peers) {
+  const variant = modelVariantLabel(m, peers);
+  return publicationCitation(m) + (variant ? " — " + variant : "");
+}
+
+// "Nice" axis step (1, 2 or 5 × 10^n) giving about `target` intervals over `range`.
+function niceStep(range, target) {
+  const raw = range / Math.max(1, target);
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const f = raw / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+}
+
+// One model in depth coordinates: x = km along strike from each segment's start (segments placed one
+// after another, 2 km apart), z = depth in km. Each patch spans its down-dip width × sin(dip) in depth.
+function compareGeometry(m) {
+  const segments = [];
+  let offset = 0, derived = false, relative = false;
+  (m.fault_segments || []).forEach((seg, index) => {
+    if (!Array.isArray(seg.patches) || !seg.patches.length) return;
+    const g = makeSlipGrid(seg, index);
+    if (!g.nx || !g.ny) return;
+    const sinDip = Math.sin((finiteNumber(seg.dip_deg) ?? 90) * Math.PI / 180);
+    const top = finiteNumber(seg.top_depth_km);
+    const pg = seg.patch_grid || {};
+    const area = (finiteNumber(pg.patch_length_km) || g.dx) * (finiteNumber(pg.patch_width_km) || g.dy);
+    const halfDepth = g.dy / 2 * sinDip;
+    const cells = [];
+    seg.patches.forEach(p => {
+      if (!Number.isFinite(p.along_strike_km) || !Number.isFinite(p.down_dip_km)) return;
+      let z = finiteNumber(p.depth_km);
+      if (z == null && top != null) { z = top + p.down_dip_km * sinDip; derived = true; }
+      if (z == null) { z = p.down_dip_km * sinDip; relative = true; }
+      cells.push({ p, x0: offset + p.along_strike_km - g.dx / 2, x1: offset + p.along_strike_km + g.dx / 2,
+        z, z0: Math.max(0, z - halfDepth), z1: z + halfDepth, slip: Math.max(0, Number(p.slip_m) || 0), area });
+    });
+    if (!cells.length) return;
+    const length = Math.max(finiteNumber(seg.length_km) || 0, ...cells.map(c => c.x1 - offset));
+    const planeTop = top ?? Math.min(...cells.map(c => c.z0));
+    const width = finiteNumber(seg.width_km);
+    const planeBottom = width != null ? planeTop + width * sinDip : Math.max(...cells.map(c => c.z1));
+    segments.push({ label: segmentLabel(seg, index), x0: offset, x1: offset + length, top: planeTop, bottom: planeBottom, cells });
+    offset += length + 2;
+  });
+  const cells = segments.flatMap(s => s.cells);
+  const potency = cells.reduce((sum, c) => sum + c.slip * c.area, 0);
+  const hypoDepth = finiteNumber(m.event && m.event.hypocenter && m.event.hypocenter.depth_km);
+  return {
+    model: m, segments, cells, derived, relative, hypoDepth,
+    length: segments.length ? segments[segments.length - 1].x1 : 0,
+    zMax: Math.max(0, ...segments.map(s => s.bottom), ...cells.map(c => c.z1), hypoDepth ?? 0),
+    vmax: Math.max(0, ...cells.map(c => c.slip)),
+    // Slip-weighted mean depth (uniform rigidity): where the model puts its moment.
+    centroid: potency > 0 ? cells.reduce((sum, c) => sum + c.slip * c.area * c.z, 0) / potency : null
+  };
+}
+
+function compareDepthMax() {
+  return Math.max(1, ...compareState.geoms.map(g => g.zMax));
+}
+
+function showCompareInfo(text, clientX, clientY) {
+  const info = document.getElementById("cmpInfo");
+  info.textContent = text;
+  info.style.display = "block";
+  const w = info.offsetWidth, h = info.offsetHeight;
+  info.style.left = Math.max(4, Math.min(clientX + 14, window.innerWidth - w - 6)) + "px";
+  info.style.top = Math.max(4, Math.min(clientY + 14, window.innerHeight - h - 6)) + "px";
+}
+
+function hideCompareInfo() {
+  document.getElementById("cmpInfo").style.display = "none";
+}
+
+// Item 1: one panel per model, all at the same km-per-pixel in x and depth, depth range shared.
+function renderComparePanels() {
+  const wrap = document.getElementById("cmpPanels");
+  wrap.replaceChildren();
+  const geoms = compareState.geoms;
+  const peers = geoms.map(g => g.model);
+  const zMax = compareDepthMax();
+  const withSlip = geoms.filter(g => g.cells.length);
+  const maxLen = Math.max(1, ...withSlip.map(g => g.length));
+  const M = { l: 30, r: 10, t: 16, b: 18 };
+  const avail = Math.max(160, wrap.clientWidth - M.l - M.r - 2);
+  const maxPlotH = Math.max(80, Math.min(300, window.innerHeight * 0.3));
+  const s = Math.min(avail / maxLen, maxPlotH / zMax);  // px per km, identical for every model and both axes
+  const sharedMax = Math.max(0, ...withSlip.map(g => g.vmax));
+  const shared = compareState.scale === "shared";
+  document.getElementById("cmpScaleLegend").innerHTML = shared
+    ? slipLegendHtml(sharedMax)
+    : `<span>0 m</span><span class="slip-key-gradient"></span><span>each model's own maximum</span>`;
+  const zStep = niceStep(zMax, Math.max(2, Math.min(6, Math.floor(zMax * s / 28))));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  geoms.forEach((geo, i) => {
+    const m = geo.model;
+    const panel = document.createElement("figure");
+    panel.className = "cmp-panel";
+    const head = document.createElement("figcaption");
+    head.className = "cmp-panel-head";
+    const seg0 = (m.fault_segments || [])[0] || {};
+    const vmax = shared ? sharedMax : geo.vmax;
+    head.innerHTML = `${compareSwatch(i)}<span class="who">${escapeHtml(compareLabel(m, peers))}</span>` +
+      `<span class="meta">${escapeHtml([
+        geo.length ? `${fmtKm(geo.length)} km along strike` : null,
+        finiteNumber(seg0.strike_deg) != null ? `strike ${seg0.strike_deg}°` : null,
+        finiteNumber(seg0.dip_deg) != null ? `dip ${seg0.dip_deg}°` : null,
+        geo.cells.length ? `max ${slipNumber(geo.vmax)}` : null,
+        !shared && geo.cells.length ? `colours 0–${slipNumber(vmax)}` : null
+      ].filter(Boolean).join(" · "))}</span>`;
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "btn-mini";
+    open.textContent = "Show in detail";
+    open.setAttribute("aria-label", `Show ${compareLabel(m, peers)} in the detail panel`);
+    open.addEventListener("click", () => selectModel(m._browser_id));
+    head.appendChild(open);
+    panel.appendChild(head);
+    if (!geo.cells.length) {
+      const none = document.createElement("div");
+      none.className = "cmp-none";
+      none.textContent = "No patch-level slip in this record (uniform-slip model).";
+      panel.appendChild(none);
+      wrap.appendChild(panel);
+      return;
+    }
+
+    const cssW = Math.round(M.l + geo.length * s + M.r), cssH = Math.round(M.t + zMax * s + M.b);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", `Slip of ${compareLabel(m, peers)} against depth: ${fmtKm(geo.length)} km along strike, ` +
+      `slip down to ${fmtKm(Math.max(...geo.cells.map(c => c.z1)))} km depth, maximum ${geo.vmax.toFixed(2)} m`);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const X = x => M.l + x * s, Z = z => M.t + z * s;
+    ctx.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    // Recessive depth grid and labels.
+    ctx.strokeStyle = "#e6e9ed";
+    ctx.fillStyle = "#5b6572";
+    ctx.lineWidth = 1;
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    for (let z = 0; z <= zMax + 1e-9; z += zStep) {
+      ctx.beginPath(); ctx.moveTo(M.l, Math.round(Z(z)) + 0.5); ctx.lineTo(cssW - M.r, Math.round(Z(z)) + 0.5); ctx.stroke();
+      ctx.fillText(fmtKm(z), M.l - 4, Z(z));
+    }
+    ctx.textAlign = "left";
+    ctx.fillText("depth (km)", 2, 6);
+    // Fault plane(s) in depth, then the patches.
+    geo.segments.forEach(sg => {
+      ctx.fillStyle = "#eef0f3";
+      ctx.fillRect(X(sg.x0), Z(sg.top), (sg.x1 - sg.x0) * s, (sg.bottom - sg.top) * s);
+      ctx.strokeStyle = "#c5cbd3";
+      ctx.strokeRect(X(sg.x0) + 0.5, Z(sg.top) + 0.5, (sg.x1 - sg.x0) * s - 1, (sg.bottom - sg.top) * s - 1);
+    });
+    const rects = [];
+    geo.cells.forEach(c => {
+      const x = Math.floor(X(c.x0) * dpr) / dpr, y = Math.floor(Z(c.z0) * dpr) / dpr;
+      const w = Math.ceil(X(c.x1) * dpr) / dpr - x, h = Math.ceil(Z(c.z1) * dpr) / dpr - y;
+      ctx.fillStyle = slipColor(c.slip, vmax);
+      ctx.fillRect(x, y, w, h);
+      rects.push({ x, y, w, h, c });
+    });
+    // Hypocentre depth from the record: its position along strike is not known, so a full-width line.
+    if (geo.hypoDepth != null) {
+      ctx.save();
+      ctx.strokeStyle = "#1b1f24";
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(M.l, Math.round(Z(geo.hypoDepth)) + 0.5); ctx.lineTo(cssW - M.r, Math.round(Z(geo.hypoDepth)) + 0.5); ctx.stroke();
+      ctx.restore();
+    }
+    // Along-strike labels (km from the segment start).
+    ctx.fillStyle = "#5b6572";
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    ctx.fillText("0", X(0), cssH - M.b + 4);
+    ctx.textAlign = "right";
+    ctx.fillText(`${fmtKm(geo.length)} km`, X(geo.length), cssH - M.b + 4);
+    ctx.textAlign = "center";
+    if (geo.length * s > 150) ctx.fillText("along strike →", X(geo.length / 2), cssH - M.b + 4);
+
+    canvas.addEventListener("pointermove", e => {
+      const r = canvas.getBoundingClientRect();
+      const px = e.clientX - r.left, py = e.clientY - r.top;
+      const hit = rects.find(q => px >= q.x && px < q.x + q.w && py >= q.y && py < q.y + q.h);
+      if (!hit) {
+        const z = (py - M.t) / s;
+        if (geo.hypoDepth != null && Math.abs(z - geo.hypoDepth) * s < 4) showCompareInfo(`Hypocentre depth in the record: ${fmtKm(geo.hypoDepth)} km`, e.clientX, e.clientY);
+        else hideCompareInfo();
+        return;
+      }
+      const p = hit.c.p;
+      showCompareInfo(`${compareLabel(m, peers)}\nSlip: ${slipNumber(hit.c.slip)}\nDepth: ${fmtKm(hit.c.z)} km` +
+        `\nAlong strike: ${fmtKm(p.along_strike_km)} km · down dip: ${fmtKm(p.down_dip_km)} km`, e.clientX, e.clientY);
+    });
+    canvas.addEventListener("pointerleave", hideCompareInfo);
+    panel.appendChild(canvas);
+    wrap.appendChild(panel);
+  });
+
+  const notes = ["All panels use the same km scale in both directions and the same depth range; colour = slip.",
+    "Horizontal position is the distance along strike from each model's own segment start: the records have no geographic anchor, so the panels are not aligned in space.",
+    "Dashed line: hypocentre depth given in the record."];
+  const derived = geoms.filter(g => g.derived).map(g => publicationCitation(g.model));
+  const relative = geoms.filter(g => g.relative).map(g => publicationCitation(g.model));
+  if (derived.length) notes.push(`Patch depths computed from top depth + down-dip distance × sin(dip): ${derived.join(", ")}.`);
+  if (relative.length) notes.push(`No top depth in the record, so depths are relative to the top of the fault: ${relative.join(", ")}.`);
+  document.getElementById("cmpPanelsNote").textContent = notes.join(" ");
+}
+
+// Spreads each patch's slip over the depth interval it spans and sums it into depth bins.
+function compareProfiles(zMax) {
+  const bin = zMax <= 12 ? 0.5 : 1;
+  const n = Math.max(1, Math.ceil(zMax / bin - 1e-9));
+  const series = compareState.geoms.map(geo => {
+    const pot = new Array(n).fill(0), area = new Array(n).fill(0);
+    geo.cells.forEach(c => {
+      const span = c.z1 - c.z0;
+      const first = Math.min(n - 1, Math.floor(c.z0 / bin)), last = Math.min(n - 1, Math.floor(c.z1 / bin));
+      for (let b = first; b <= last; b++) {
+        const frac = span > 0 ? Math.max(0, Math.min(c.z1, (b + 1) * bin) - Math.max(c.z0, b * bin)) / span : (b === first ? 1 : 0);
+        if (frac <= 0) continue;
+        pot[b] += c.slip * c.area * frac;
+        area[b] += c.area * frac;
+      }
+    });
+    const total = pot.reduce((a, v) => a + v, 0);
+    return {
+      geo,
+      mean: area.map((a, b) => a > 1e-12 ? pot[b] / a : null),                      // area-weighted mean slip (m)
+      share: area.map((a, b) => a > 1e-12 && total > 0 ? pot[b] / total * 100 : null)  // % of the model's moment
+    };
+  });
+  return { bin, n, series };
+}
+
+function compareValueText(v, metric) {
+  if (v == null) return "no fault at this depth";
+  return metric === "mean" ? `${v.toFixed(2)} m` : `${v.toFixed(1)} %`;
+}
+
+// Item 2: slip against depth, one line per model.
+function renderCompareChart() {
+  const host = document.getElementById("cmpChart");
+  const zMax = compareDepthMax();
+  const prof = compareProfiles(zMax);
+  compareState.profile = prof;
+  const metric = compareState.metric;
+  const peers = compareState.geoms.map(g => g.model);
+  const W = Math.max(280, host.clientWidth || 600);
+  const H = Math.round(Math.max(240, Math.min(420, zMax * 14 + 70)));
+  const M = { l: 48, r: 16, t: 10, b: 40 };
+  const values = prof.series.flatMap(sr => sr[metric]).filter(v => v != null);
+  const vTop = Math.max(metric === "mean" ? 0.05 : 1, ...values);
+  const xStep = niceStep(vTop, W < 420 ? 4 : 6);
+  const xMax = Math.ceil(vTop / xStep - 1e-9) * xStep;
+  const zStep = niceStep(zMax, Math.max(3, Math.min(8, Math.floor((H - M.t - M.b) / 34))));
+  const X = v => M.l + v / xMax * (W - M.l - M.r), Y = z => M.t + z / zMax * (H - M.t - M.b);
+  const parts = [];
+  for (let v = 0; v <= xMax + 1e-9; v += xStep) {
+    parts.push(`<line x1="${X(v)}" y1="${M.t}" x2="${X(v)}" y2="${H - M.b}" stroke="#e6e9ed"/>`,
+      `<text x="${X(v)}" y="${H - M.b + 14}" text-anchor="middle">${escapeHtml(Number(v.toFixed(3)))}</text>`);
+  }
+  for (let z = 0; z <= zMax + 1e-9; z += zStep) {
+    parts.push(`<line x1="${M.l}" y1="${Y(z)}" x2="${W - M.r}" y2="${Y(z)}" stroke="#e6e9ed"/>`,
+      `<text x="${M.l - 6}" y="${Y(z) + 3.5}" text-anchor="end">${escapeHtml(fmtKm(z))}</text>`);
+  }
+  parts.push(`<line x1="${M.l}" y1="${M.t}" x2="${M.l}" y2="${H - M.b}" stroke="#9aa3ad"/>`,
+    `<text x="${(M.l + W - M.r) / 2}" y="${H - 6}" text-anchor="middle">${metric === "mean"
+      ? "Mean slip at this depth (m)" : `Share of the model's moment per ${prof.bin} km of depth (%)`}</text>`,
+    `<text transform="translate(12 ${(M.t + H - M.b) / 2}) rotate(-90)" text-anchor="middle">Depth (km)</text>`);
+  prof.series.forEach((sr, i) => {
+    let d = "", open = false;
+    sr[metric].forEach((v, b) => {
+      if (v == null) { open = false; return; }
+      d += `${open ? "L" : "M"}${X(v).toFixed(1)} ${Y((b + 0.5) * prof.bin).toFixed(1)} `;
+      open = true;
+    });
+    if (d) parts.push(`<path d="${d}" fill="none" stroke="${compareColor(i)}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="${compareDash(i)}"/>`);
+  });
+  parts.push(`<line id="cmpCross" x1="${M.l}" x2="${W - M.r}" y1="0" y2="0" stroke="#1b1f24" stroke-width="1" visibility="hidden"/>`,
+    `<rect id="cmpHit" x="${M.l}" y="${M.t}" width="${W - M.l - M.r}" height="${H - M.t - M.b}" fill="transparent"/>`);
+  const centroids = prof.series.filter(sr => sr.geo.centroid != null)
+    .map(sr => `${publicationCitation(sr.geo.model)} ${fmtKm(sr.geo.centroid)} km`).join("; ");
+  host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" font-size="11" fill="#5b6572" ` +
+    `font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" ` +
+    `aria-label="${escapeHtml(`Slip against depth for ${prof.series.length} models; slip-weighted centroid depths: ${centroids || "none"}`)}">${parts.join("")}</svg>`;
+
+  const hit = document.getElementById("cmpHit"), cross = document.getElementById("cmpCross");
+  hit.addEventListener("pointermove", e => {
+    const r = host.querySelector("svg").getBoundingClientRect();
+    const z = ((e.clientY - r.top) * (H / r.height) - M.t) / (H - M.t - M.b) * zMax;
+    const b = Math.max(0, Math.min(prof.n - 1, Math.floor(z / prof.bin)));
+    const y = Y((b + 0.5) * prof.bin);
+    cross.setAttribute("y1", y);
+    cross.setAttribute("y2", y);
+    cross.setAttribute("visibility", "visible");
+    showCompareInfo(`Depth ${fmtKm(b * prof.bin)}–${fmtKm((b + 1) * prof.bin)} km\n` +
+      prof.series.map(sr => `${publicationCitation(sr.geo.model)}: ${compareValueText(sr[metric][b], metric)}`).join("\n"), e.clientX, e.clientY);
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideCompareInfo(); });
+
+  document.getElementById("cmpLegend").innerHTML = prof.series.map((sr, i) =>
+    `<span class="item">${compareSwatch(i)}<span>${escapeHtml(compareLabel(sr.geo.model, peers))}</span>` +
+    (sr.geo.centroid != null
+      ? `<span class="meta">· centroid ${escapeHtml(fmtKm(sr.geo.centroid))} km${sr.geo.hypoDepth != null ? ` · hypocentre ${escapeHtml(fmtKm(sr.geo.hypoDepth))} km` : ""}</span>`
+      : `<span class="none">· no patch-level slip</span>`) + `</span>`).join("");
+
+  const rows = [];
+  for (let b = 0; b < prof.n; b++) {
+    if (prof.series.every(sr => sr[metric][b] == null)) continue;
+    rows.push(`<tr><td>${escapeHtml(fmtKm(b * prof.bin))}–${escapeHtml(fmtKm((b + 1) * prof.bin))}</td>` +
+      prof.series.map(sr => `<td>${sr[metric][b] == null ? "—" : escapeHtml(metric === "mean" ? sr[metric][b].toFixed(3) : sr[metric][b].toFixed(2))}</td>`).join("") + "</tr>");
+  }
+  document.getElementById("cmpTable").innerHTML = `<table><thead><tr><th>Depth (km)</th>` +
+    prof.series.map(sr => `<th>${escapeHtml(publicationCitation(sr.geo.model))}</th>`).join("") +
+    `</tr></thead><tbody>${rows.join("")}</tbody></table>` +
+    `<div class="schematic-note">${metric === "mean" ? "Mean slip (m)" : "Share of moment (%)"} per depth bin.</div>`;
+  document.getElementById("cmpChartNote").textContent =
+    `Each patch's slip is spread over the depth range it covers (patch width × sin dip) and summed in ${prof.bin}-km bins. ` +
+    `Mean slip = slip averaged over the fault area at that depth; share of moment assumes uniform rigidity. ` +
+    `Centroid = slip-weighted mean depth of the model.`;
+}
+
+function renderCompare() {
+  if (document.getElementById("compareModal").hidden) return;
+  hideCompareInfo();
+  renderComparePanels();
+  renderCompareChart();
+}
+
+function openCompare(key, opener) {
+  const ev = EVENTS.get(key);
+  if (!ev || ev.models.length < 2) return;
+  closeSlipViewer();
+  compareState.key = key;
+  compareState.geoms = ev.models.map(compareGeometry);
+  compareState.opener = opener || document.activeElement;
+  document.getElementById("compareTitle").textContent = `${ev.name} · ${ev.models.length} slip models`;
+  document.getElementById("compareModal").hidden = false;
+  document.body.style.overflow = "hidden";
+  renderCompare();
+  document.getElementById("compareClose").focus();
+}
+
+function closeCompare() {
+  const modal = document.getElementById("compareModal");
+  if (modal.hidden) return;
+  modal.hidden = true;
+  hideCompareInfo();
+  document.body.style.overflow = "";
+  compareState.key = null;
+  compareState.geoms = [];
+  const opener = compareState.opener;
+  compareState.opener = null;
+  if (opener && opener.isConnected && typeof opener.focus === "function") opener.focus();
+}
+
+document.getElementById("compareClose").addEventListener("click", closeCompare);
+document.getElementById("compareModal").addEventListener("click", e => {
+  if (e.target === e.currentTarget) closeCompare();
+});
+document.querySelectorAll('input[name="cmpScale"]').forEach(r => r.addEventListener("change", () => {
+  compareState.scale = r.value;
+  renderComparePanels();
+}));
+document.querySelectorAll('input[name="cmpMetric"]').forEach(r => r.addEventListener("change", () => {
+  compareState.metric = r.value;
+  renderCompareChart();
+}));
+document.querySelector("#compareModal .cmp-body").addEventListener("scroll", hideCompareInfo);
+window.addEventListener("resize", renderCompare);
 
 // ---------- live seismicity layer (EMSC first, USGS as fallback) ----------
 let seismicityRequest = 0;

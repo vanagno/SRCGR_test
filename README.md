@@ -399,6 +399,23 @@ undated earthquakes last, and then by name.
   whatever the filters. Choosing one selects that model and updates the
   [permalink](#permalinks). An earthquake with one model shows *Model:* and the
   citation instead.
+- **Comparing models.** For an earthquake with several models, *Compare the N
+  models* (below the selector) opens a full-screen comparison:
+  - *Slip on a common scale*: one panel per model, all drawn at the same km per
+    pixel in both directions and over the same depth range, so fault sizes and
+    depths can be compared directly. The vertical axis is depth: each patch is drawn
+    over the depth range it covers (patch width × sin dip), using its `depth_km`, or
+    else `top_depth_km` + down-dip distance × sin(dip). A dashed line marks the
+    record's hypocentre depth. Colours use one shared slip scale, or optionally each
+    model's own maximum. Horizontal position is the distance along strike from each
+    model's own segment start; the records have no geographic anchor, so the panels
+    are not aligned in space.
+  - *Slip versus depth*: one line per model (colour plus a dash pattern) showing
+    the mean slip at each depth, or the share of the model's moment in each depth
+    bin (uniform rigidity). Each patch's slip is spread over the depth range it
+    covers and summed in 0.5-km bins (1-km bins when the compared faults or
+    hypocentres reach deeper than 12 km). The legend gives each model's slip-weighted centroid depth and its
+    hypocentre depth, and a data table lists the values.
 - **Variant labels** tell apart the models of one earthquake. The label is the first
   of `model_variant.label`, `name`, `description`, `fault_orientation` and
   `variant_id` that is given. Otherwise it is a "north-dipping" or "south-dipping"
