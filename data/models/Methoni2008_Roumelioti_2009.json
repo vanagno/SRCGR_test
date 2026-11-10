@@ -13,7 +13,7 @@
       "depth_km": 30.0
     },
     "faulting_style": "reverse",
-    "tectonic_setting": "Hellenic subduction interface, western Hellenic Trench; African lithosphere beneath the Aegean plate",
+    "tectonic_setting": "Hellenic subduction interface, western Hellenic Trench",
     "region": "Offshore southern Peloponnese, Greece (Methoni/Koroni area)"
   },
   "reference": {
@@ -35,11 +35,11 @@
     "data_types": [
       "regional_waveforms"
     ],
-    "method": "Empirical Green-function source-time-function inversion using 11 regional stations. Fitted normalized STF shapes with radially expanding rupture front and boxcar subfault time functions. Rupture velocity 2.5 km/s, slip rise time 1.5 s, reported 95.2% variance reduction.",
+    "method": "Empirical Green-function source-time-function inversion using 11 regional stations.",
     "green_function_model": "Empirical Green function from the 14 February 2008 12:08:57 UTC Mw 6.1 thrust earthquake. 0.02–0.2 Hz bandpass waveforms, deconvolution, three-component STF stacks; half-space ray approximation.",
     "slip_type": "variable",
     "smoothing_constraint": null,
-    "notes": "IMAGE-DIGITIZED ESTIMATE, NOT ORIGINAL INVERSION SUBFAULT AMPLITUDES. Figure 7 is a 60 km along-strike by 40 km down-dip plotted surface, with its SSE end left and NNW end right. Header L~30 km and w~20 km refer to approximate strong-slip dimensions, NOT full plot dimensions. This reconstruction samples the color-coded image into 60 × 40 patches of 1 × 1 km; 1 km sampling is our chosen discretization, NOT established as the inversion mesh. The figure uses a 0–300 cm scale in discrete 20 cm bands; 0–20 cm red background is conservatively assigned 0, other bins represented by midpoints (30, 50, ..., 290 cm). Calibration samples were taken directly from the embedded full-resolution JPEG figure colorbar. Dark/white contour lines (20-cm intervals), labels, dotted grid, white star hypocenter, and white Slip Patch 1/2 text are overlays and excluded from color sampling. Locally missing values under labels are estimated by neighboring values. A 1-km grid cannot reconstruct values uniquely hidden under contours, labels or star. Figure down-dip distance is not absolute depth. Depth_km here is a geometrical proxy anchored at paper 30-km mainshock depth and plot hypocenter down-dip distance ~19.6 km, projected using dip 10°, with inferred top depth. Grid patch latitude/longitude are null as the map does not provide a georeferenced fault-plane origin. Slip patch 1 is on plotted NNW side (right, x~32–49 km), slip patch 2 on SSE side (left, x~17–29 km); two small deep features are poorly resolved and must not be interpreted as robust ruptures. Original detailed faulting_style description: low-angle thrust (reverse). Digitization variant descriptor: figure7_colorbar_calibrated_1km_image_digitization."
+    "notes": "IMAGE-DIGITIZED ESTIMATE, NOT ORIGINAL INVERSION SUBFAULT AMPLITUDES."
   },
   "fault_segments": [
     {

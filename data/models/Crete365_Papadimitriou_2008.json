@@ -13,7 +13,7 @@
       "depth_km": null
     },
     "faulting_style": "reverse",
-    "tectonic_setting": "Hellenic subduction zone; eastern Mediterranean oceanic lithosphere beneath Aegean microplate",
+    "tectonic_setting": "Hellenic Subduction Zone",
     "region": "Southwestern Hellenic Arc, near western Crete, Greece"
   },
   "reference": {
@@ -31,11 +31,11 @@
     "data_types": [
       "field_mapping"
     ],
-    "method": "Iterative forward modeling: adjust subfault slip to match observed surface uplift, including dip sensitivity tests; not a modern geodetic least-squares inversion",
+    "method": "Iterative forward modeling, including dip sensitivity tests",
     "green_function_model": "Elastic dislocation model (Steketee 1958; Okada 1992)",
     "slip_type": "variable",
     "smoothing_constraint": null,
-    "notes": "Fault plane divided into 128 patches; 80 contribute nonzero slip. The paper does not specify GNSS/InSAR/teleseismic inversions or a formal smoothing penalty. Digitized slip classes are approximate."
+    "notes": "Fault plane divided into 128 patches; 80 contribute nonzero slip."
   },
   "fault_segments": [
     {

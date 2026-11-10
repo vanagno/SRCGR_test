@@ -34,7 +34,7 @@
     "data_types": [
       "regional_waveforms"
     ],
-    "method": "Kinematic inversion of regional broadband empirical-Green-function apparent source time functions, using iterative damped least squares with inequality constraints; Figure 3 grayscale slip pattern digitized approximately on a 3 km sampling grid.",
+    "method": "Kinematic inversion of regional broadband empirical-Green-function apparent source time functions, using iterative damped least squares with inequality constraints",
     "green_function_model": "Empirical Green functions from nearby aftershocks; surface-wave travel times from Papadopoulos et al. (2000) Attica velocity model",
     "slip_type": "variable",
     "smoothing_constraint": true,
