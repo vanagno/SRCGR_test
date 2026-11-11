@@ -22,7 +22,8 @@ What the page offers:
   [Earthquakes and models on the page](#earthquakes-and-models-on-the-page)).
 - For the selected earthquake: a selector of all its published slip models. For
   the selected model: the source parameters, the fault geometry and slip
-  projected on the map, a slip overview with a full-screen viewer, data-quality
+  projected on the map, a slip overview with a full-screen viewer (zoom, pan,
+  along-strike and down-dip axes in km that follow the zoom), data-quality
   notes, a citation (plain text and BibTeX), and downloads (record JSON, patch CSV).
 - An optional live overlay of recent seismicity (EMSC, with USGS as fallback).
   It is off by default.
