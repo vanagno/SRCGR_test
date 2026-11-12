@@ -214,6 +214,17 @@
   .slip-segment.compact-y .axis-y .ax-cap { display: none; }
   .slip-segment.compact-y .axis-x .ax-cap-y { display: inline; }
   .slip-overview { display: block; width: auto; height: auto; max-width: 100%; max-height: min(45vh, 440px); image-rendering: pixelated; }
+  /* Segments of one model share a km scale and start at the left, so their lengths compare. */
+  .slip-segment.common-scale .slip-plot { justify-content: start; }
+  .seg-table-wrap { overflow-x: auto; margin: 4px 0 2px; }
+  #detail table.seg-table { font-size: 11.5px; margin-bottom: 4px; }
+  #detail table.seg-table th { text-align: left; font-weight: 600; color: var(--muted); padding: 3px 6px 3px 0; border-bottom: 1px solid var(--line); vertical-align: bottom; line-height: 1.25; }
+  #detail table.seg-table td { padding: 3px 6px 3px 0; border-bottom: 1px solid #eef0f3; white-space: nowrap; overflow-wrap: normal; }
+  #detail table.seg-table td.num, #detail table.seg-table th.num { text-align: right; }
+  #detail table.seg-table th:last-child, #detail table.seg-table td:last-child { padding-right: 0; }
+  .seg-note { font-size: 11px; color: var(--muted); margin-bottom: 10px; }
+  .cmp-segs { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: flex-start; }
+  .cmp-seg-cap { font-size: 11px; color: var(--muted); margin: 2px 0 1px; }
   .slip-key { display: flex; justify-content: center; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 8px; }
   .slip-key-gradient { width: min(170px, 56%); height: 9px; background: linear-gradient(to right, rgb(255,245,204), rgb(253,174,97), rgb(178,24,43), rgb(103,0,13)); }
   .schematic-note { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 6px; text-align: center; }
@@ -710,6 +721,15 @@ function originFromPatches(seg) {
 
 function segmentLabel(seg, index) {
   return seg.name || seg.segment_id || `Segment ${index + 1}`;
+}
+
+// e.g. "strike 12° · dip 81° · 50 × 34 km", from whatever the record gives.
+function segmentGeometryText(seg) {
+  const parts = [];
+  if (finiteNumber(seg.strike_deg) != null) parts.push(`strike ${seg.strike_deg}°`);
+  if (finiteNumber(seg.dip_deg) != null) parts.push(`dip ${seg.dip_deg}°`);
+  if (finiteNumber(seg.length_km) != null && finiteNumber(seg.width_km) != null) parts.push(`${fmtKm(seg.length_km)} × ${fmtKm(seg.width_km)} km`);
+  return parts.join(" · ");
 }
 
 function segmentGeometry(seg, index) {
@@ -1551,6 +1571,7 @@ function showDetail(m, geometry) {
     ${prov.uncertainty_notes ? `<details><summary>Uncertainty notes</summary><p>${escapeHtml(prov.uncertainty_notes)}</p></details>` : ""}
     ${inv.notes ? `<details><summary>Compiler notes</summary><p>${escapeHtml(inv.notes)}</p></details>` : ""}
 
+    ${segmentSummaryHtml(m)}
     <div class="section-title">Slip distribution</div>
     <div id="patchCanvasWrap"></div>
 
@@ -1649,6 +1670,38 @@ function makeSlipGrid(segment, index) {
   return { segment, label, xs, ys, grid, nx: xs.length, ny: ys.length, dx: ax.step, dy: ay.step, aspect, emptyCols, emptyRows };
 }
 
+// Multi-segment models: one row per segment with its geometry, peak slip and share of the model's moment.
+// The share is computed from the record's patches (Σ slip × patch area, uniform rigidity).
+function segmentSummaryHtml(m) {
+  const segs = m.fault_segments || [];
+  if (segs.length < 2) return "";
+  const rows = segs.map((seg, index) => {
+    const patches = (seg.patches || []).filter(p => Number.isFinite(Number(p.slip_m)) &&
+      Number.isFinite(p.along_strike_km) && Number.isFinite(p.down_dip_km));
+    const g = patches.length ? makeSlipGrid(seg, index) : null;
+    const pg = seg.patch_grid || {};
+    const area = g ? (finiteNumber(pg.patch_length_km) || g.dx) * (finiteNumber(pg.patch_width_km) || g.dy) : 0;
+    const potency = patches.reduce((sum, p) => sum + Math.max(0, Number(p.slip_m)) * area, 0);
+    const maxSlip = patches.length ? Math.max(...patches.map(p => Number(p.slip_m))) : null;
+    return { seg, label: segmentLabel(seg, index), potency, maxSlip };
+  });
+  const total = rows.reduce((sum, r) => sum + r.potency, 0);
+  const deg = v => finiteNumber(v) != null ? `${v}°` : "—";
+  const km = v => finiteNumber(v) != null ? fmtKm(v) : "—";
+  return `
+    <div class="section-title">Fault segments (${segs.length})</div>
+    <div class="seg-table-wrap"><table class="seg-table">
+      <thead><tr><th>Segment</th><th class="num">Strike / dip / rake</th><th class="num">L × W (km)</th><th class="num">Top (km)</th>
+        <th class="num">Max slip</th><th class="num">Moment share</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${escapeHtml(r.label)}</td>` +
+        `<td class="num">${escapeHtml(`${deg(r.seg.strike_deg)}/${deg(r.seg.dip_deg)}/${deg(r.seg.average_rake_deg)}`)}</td>` +
+        `<td class="num">${escapeHtml(`${km(r.seg.length_km)} × ${km(r.seg.width_km)}`)}</td><td class="num">${escapeHtml(km(r.seg.top_depth_km))}</td>` +
+        `<td class="num">${escapeHtml(slipNumber(r.maxSlip))}</td>` +
+        `<td class="num">${total > 0 && r.maxSlip != null ? escapeHtml((r.potency / total * 100).toFixed(0) + " %") : "—"}</td></tr>`).join("")}
+      </tbody></table></div>
+    <div class="seg-note">Moment share: each segment's part of Σ slip × patch area over the record's patches (uniform rigidity), not a published segment moment.</div>`;
+}
+
 function slipLegendHtml(vmax) {
   return `<span>0 m</span><span class="slip-key-gradient"></span><span>${vmax.toFixed(2)} m</span>`;
 }
@@ -1689,14 +1742,19 @@ function renderPatchGrid(m) {
   const vmax = modelSlipMax(m);
   slipGridState = { model: m, grids, vmax };
   slipViewer.active = 0;  // the previous model may have had more segments
+  const multi = grids.length > 1;
 
   grids.forEach((g, index) => {
     const section = document.createElement("section");
-    section.className = "slip-segment";
+    // Several segments share one km scale (see fitSlipOverviews), so their sizes compare.
+    section.className = "slip-segment" + (multi ? " common-scale" : "");
     const heading = document.createElement("div");
     heading.className = "slip-segment-heading";
     const label = document.createElement("span");
-    label.textContent = grids.length > 1 ? `${g.label} · ${g.nx} × ${g.ny}` : `${g.nx} × ${g.ny} subfaults`;
+    const geometry = segmentGeometryText(g.segment);
+    label.textContent = multi
+      ? `${g.label} · ${g.nx} × ${g.ny} subfaults${geometry ? ` · ${geometry}` : ""}`
+      : `${g.nx} × ${g.ny} subfaults`;
     const expand = document.createElement("button");
     expand.type = "button";
     expand.className = "slip-expand";
@@ -1718,6 +1776,8 @@ function renderPatchGrid(m) {
     const cw = 12, ch = Math.max(3, Math.round(12 * g.aspect));
     canvas.width = g.nx * cw;
     canvas.height = g.ny * ch;
+    canvas.dataset.kmW = g.nx * g.dx;  // physical size of the drawn grid
+    canvas.dataset.kmH = g.ny * g.dy;
     canvas.title = "Open the fullscreen viewer to zoom, pan, and inspect individual patches";
     canvas.setAttribute("role", "img");
     canvas.setAttribute("aria-label", `Slip distribution of ${g.label}: ${g.nx} columns along strike by ${g.ny} rows down dip, maximum ${vmax.toFixed(2)} m`);
@@ -1749,23 +1809,32 @@ function renderPatchGrid(m) {
   });
   const note = document.createElement("div");
   note.className = "schematic-note";
-  note.textContent = "Axis values are patch-centre positions in the fault plane. Top = shallowest down-dip row; local coordinates only.";
+  note.textContent = multi
+    ? "Segments are drawn at the same km scale and share one colour scale. Each segment has its own along-strike axis from its own start; they are not joined end to end. Axis values are patch-centre positions; top = shallowest down-dip row."
+    : "Axis values are patch-centre positions in the fault plane. Top = shallowest down-dip row; local coordinates only.";
   wrap.appendChild(note);
   fitSlipOverviews();
 }
 
 function fitSlipOverviews() {
-  // Maximize overview size within panel width and comfortable viewport height,
+  const axisWidth = 38;  // y-axis column + gap
+  const maxHeight = Math.max(100, Math.min(window.innerHeight * 0.45, 440));
+  // Several segments of one model: one common px-per-km scale, so their lengths and widths compare.
+  const shared = [...document.querySelectorAll(".slip-segment.common-scale .slip-overview")];
+  const avail = Math.min(...shared.map(c => c.closest(".slip-segment").clientWidth - axisWidth));
+  const common = shared.length && avail > 0
+    ? Math.min(...shared.map(c => Math.min(avail / Number(c.dataset.kmW), maxHeight / Number(c.dataset.kmH))))
+    : null;
+  // Otherwise maximize each overview within panel width and comfortable viewport height,
   // retaining the subfault grid's physical cell aspect ratio.
   document.querySelectorAll(".slip-overview").forEach(c => {
     const section = c.closest(".slip-segment");
     const plot = c.closest(".slip-plot");
-    const axisWidth = 38;  // y-axis column + gap
     const available = section.clientWidth - axisWidth;
-    const maxHeight = Math.max(100, Math.min(window.innerHeight * 0.45, 440));
     if (available <= 0 || !c.width || !c.height) return;
     const scale = Math.min(available / c.width, maxHeight / c.height);
-    const w = c.width * scale, h = c.height * scale;
+    const w = common != null && section.classList.contains("common-scale") ? Number(c.dataset.kmW) * common : c.width * scale;
+    const h = common != null && section.classList.contains("common-scale") ? Number(c.dataset.kmH) * common : c.height * scale;
     c.style.width = w + "px";
     c.style.height = h + "px";
     plot.style.gridTemplateColumns = `34px ${w}px`;
@@ -1794,7 +1863,8 @@ function openSlipViewer(index, opener) {
   slipGridState.grids.forEach((g, i) => {
     const o = document.createElement("option");
     o.value = i;
-    o.textContent = g.label;
+    const geometry = segmentGeometryText(g.segment);
+    o.textContent = geometry ? `${g.label} — ${geometry}` : g.label;
     select.appendChild(o);
   });
   select.value = String(index);
@@ -2080,11 +2150,12 @@ function niceStep(range, target) {
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
 }
 
-// One model in depth coordinates: x = km along strike from each segment's start (segments placed one
-// after another, 2 km apart), z = depth in km. Each patch spans its down-dip width × sin(dip) in depth.
+// One model in depth coordinates, per segment: x = km along strike from that segment's own start (each
+// segment keeps its own axis; segments are never joined end to end), z = depth in km. Each patch spans
+// its down-dip width × sin(dip) in depth.
 function compareGeometry(m) {
   const segments = [];
-  let offset = 0, derived = false, relative = false;
+  let derived = false, relative = false;
   (m.fault_segments || []).forEach((seg, index) => {
     if (!Array.isArray(seg.patches) || !seg.patches.length) return;
     const g = makeSlipGrid(seg, index);
@@ -2100,23 +2171,23 @@ function compareGeometry(m) {
       let z = finiteNumber(p.depth_km);
       if (z == null && top != null) { z = top + p.down_dip_km * sinDip; derived = true; }
       if (z == null) { z = p.down_dip_km * sinDip; relative = true; }
-      cells.push({ p, x0: offset + p.along_strike_km - g.dx / 2, x1: offset + p.along_strike_km + g.dx / 2,
+      cells.push({ p, x0: p.along_strike_km - g.dx / 2, x1: p.along_strike_km + g.dx / 2,
         z, z0: Math.max(0, z - halfDepth), z1: z + halfDepth, slip: Math.max(0, Number(p.slip_m) || 0), area });
     });
     if (!cells.length) return;
-    const length = Math.max(finiteNumber(seg.length_km) || 0, ...cells.map(c => c.x1 - offset));
+    const length = Math.max(finiteNumber(seg.length_km) || 0, ...cells.map(c => c.x1));
     const planeTop = top ?? Math.min(...cells.map(c => c.z0));
     const width = finiteNumber(seg.width_km);
     const planeBottom = width != null ? planeTop + width * sinDip : Math.max(...cells.map(c => c.z1));
-    segments.push({ label: segmentLabel(seg, index), x0: offset, x1: offset + length, top: planeTop, bottom: planeBottom, cells });
-    offset += length + 2;
+    segments.push({ label: segmentLabel(seg, index), geometry: segmentGeometryText(seg), length, top: planeTop, bottom: planeBottom,
+      cells, vmax: Math.max(0, ...cells.map(c => c.slip)) });
   });
   const cells = segments.flatMap(s => s.cells);
   const potency = cells.reduce((sum, c) => sum + c.slip * c.area, 0);
   const hypoDepth = finiteNumber(m.event && m.event.hypocenter && m.event.hypocenter.depth_km);
   return {
     model: m, segments, cells, derived, relative, hypoDepth,
-    length: segments.length ? segments[segments.length - 1].x1 : 0,
+    length: Math.max(0, ...segments.map(s => s.length)),  // longest segment (each is drawn separately)
     zMax: Math.max(0, ...segments.map(s => s.bottom), ...cells.map(c => c.z1), hypoDepth ?? 0),
     vmax: Math.max(0, ...cells.map(c => c.slip)),
     // Slip-weighted mean depth (uniform rigidity): where the model puts its moment.
@@ -2168,13 +2239,14 @@ function renderComparePanels() {
     panel.className = "cmp-panel";
     const head = document.createElement("figcaption");
     head.className = "cmp-panel-head";
-    const seg0 = (m.fault_segments || [])[0] || {};
     const vmax = shared ? sharedMax : geo.vmax;
+    const multi = geo.segments.length > 1;
+    const seg0 = (m.fault_segments || [])[0] || {};
     head.innerHTML = `${compareSwatch(i)}<span class="who">${escapeHtml(compareLabel(m, peers))}</span>` +
       `<span class="meta">${escapeHtml([
-        geo.length ? `${fmtKm(geo.length)} km along strike` : null,
-        finiteNumber(seg0.strike_deg) != null ? `strike ${seg0.strike_deg}°` : null,
-        finiteNumber(seg0.dip_deg) != null ? `dip ${seg0.dip_deg}°` : null,
+        multi ? `${geo.segments.length} segments` : (geo.length ? `${fmtKm(geo.length)} km along strike` : null),
+        !multi && finiteNumber(seg0.strike_deg) != null ? `strike ${seg0.strike_deg}°` : null,
+        !multi && finiteNumber(seg0.dip_deg) != null ? `dip ${seg0.dip_deg}°` : null,
         geo.cells.length ? `max ${slipNumber(geo.vmax)}` : null,
         !shared && geo.cells.length ? `colours 0–${slipNumber(vmax)}` : null
       ].filter(Boolean).join(" · "))}</span>`;
@@ -2195,91 +2267,111 @@ function renderComparePanels() {
       return;
     }
 
-    const cssW = Math.round(M.l + geo.length * s + M.r), cssH = Math.round(M.t + zMax * s + M.b);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    canvas.style.width = cssW + "px";
-    canvas.style.height = cssH + "px";
-    canvas.setAttribute("role", "img");
-    canvas.setAttribute("aria-label", `Slip of ${compareLabel(m, peers)} against depth: ${fmtKm(geo.length)} km along strike, ` +
-      `slip down to ${fmtKm(Math.max(...geo.cells.map(c => c.z1)))} km depth, maximum ${geo.vmax.toFixed(2)} m`);
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const X = x => M.l + x * s, Z = z => M.t + z * s;
-    ctx.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-    // Recessive depth grid and labels.
-    ctx.strokeStyle = "#e6e9ed";
-    ctx.fillStyle = "#5b6572";
-    ctx.lineWidth = 1;
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    for (let z = 0; z <= zMax + 1e-9; z += zStep) {
-      ctx.beginPath(); ctx.moveTo(M.l, Math.round(Z(z)) + 0.5); ctx.lineTo(cssW - M.r, Math.round(Z(z)) + 0.5); ctx.stroke();
-      ctx.fillText(fmtKm(z), M.l - 4, Z(z));
-    }
-    ctx.textAlign = "left";
-    ctx.fillText("depth (km)", 2, 6);
-    // Fault plane(s) in depth, then the patches.
+    // One canvas per segment, all at the same scale; a multi-segment model gets a labelled sub-panel each.
+    const segs = document.createElement("div");
+    segs.className = "cmp-segs";
     geo.segments.forEach(sg => {
-      ctx.fillStyle = "#eef0f3";
-      ctx.fillRect(X(sg.x0), Z(sg.top), (sg.x1 - sg.x0) * s, (sg.bottom - sg.top) * s);
-      ctx.strokeStyle = "#c5cbd3";
-      ctx.strokeRect(X(sg.x0) + 0.5, Z(sg.top) + 0.5, (sg.x1 - sg.x0) * s - 1, (sg.bottom - sg.top) * s - 1);
-    });
-    const rects = [];
-    geo.cells.forEach(c => {
-      const x = Math.floor(X(c.x0) * dpr) / dpr, y = Math.floor(Z(c.z0) * dpr) / dpr;
-      const w = Math.ceil(X(c.x1) * dpr) / dpr - x, h = Math.ceil(Z(c.z1) * dpr) / dpr - y;
-      ctx.fillStyle = slipColor(c.slip, vmax);
-      ctx.fillRect(x, y, w, h);
-      rects.push({ x, y, w, h, c });
-    });
-    // Hypocentre depth from the record: its position along strike is not known, so a full-width line.
-    if (geo.hypoDepth != null) {
-      ctx.save();
-      ctx.strokeStyle = "#1b1f24";
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath(); ctx.moveTo(M.l, Math.round(Z(geo.hypoDepth)) + 0.5); ctx.lineTo(cssW - M.r, Math.round(Z(geo.hypoDepth)) + 0.5); ctx.stroke();
-      ctx.restore();
-    }
-    // Along-strike labels (km from the segment start).
-    ctx.fillStyle = "#5b6572";
-    ctx.textBaseline = "top";
-    ctx.textAlign = "left";
-    ctx.fillText("0", X(0), cssH - M.b + 4);
-    ctx.textAlign = "right";
-    ctx.fillText(`${fmtKm(geo.length)} km`, X(geo.length), cssH - M.b + 4);
-    ctx.textAlign = "center";
-    if (geo.length * s > 150) ctx.fillText("along strike →", X(geo.length / 2), cssH - M.b + 4);
-
-    canvas.addEventListener("pointermove", e => {
-      const r = canvas.getBoundingClientRect();
-      const px = e.clientX - r.left, py = e.clientY - r.top;
-      const hit = rects.find(q => px >= q.x && px < q.x + q.w && py >= q.y && py < q.y + q.h);
-      if (!hit) {
-        const z = (py - M.t) / s;
-        if (geo.hypoDepth != null && Math.abs(z - geo.hypoDepth) * s < 4) showCompareInfo(`Hypocentre depth in the record: ${fmtKm(geo.hypoDepth)} km`, e.clientX, e.clientY);
-        else hideCompareInfo();
-        return;
+      const box = document.createElement("div");
+      if (multi) {
+        const cap = document.createElement("div");
+        cap.className = "cmp-seg-cap";
+        cap.textContent = [sg.label, sg.geometry, `max ${slipNumber(sg.vmax)}`].filter(Boolean).join(" · ");
+        box.appendChild(cap);
       }
-      const p = hit.c.p;
-      showCompareInfo(`${compareLabel(m, peers)}\nSlip: ${slipNumber(hit.c.slip)}\nDepth: ${fmtKm(hit.c.z)} km` +
-        `\nAlong strike: ${fmtKm(p.along_strike_km)} km · down dip: ${fmtKm(p.down_dip_km)} km`, e.clientX, e.clientY);
+      box.appendChild(compareSegmentCanvas(geo, sg, { M, s, zMax, zStep, dpr, vmax, label: compareLabel(m, peers) + (multi ? ` · ${sg.label}` : "") }));
+      segs.appendChild(box);
     });
-    canvas.addEventListener("pointerleave", hideCompareInfo);
-    panel.appendChild(canvas);
+    panel.appendChild(segs);
     wrap.appendChild(panel);
   });
 
   const notes = ["All panels use the same km scale in both directions and the same depth range; colour = slip.",
-    "Horizontal position is the distance along strike from each model's own segment start: the records have no geographic anchor, so the panels are not aligned in space.",
+    "Horizontal position is the distance along strike from each segment's own start: the panels are not aligned in space.",
     "Dashed line: hypocentre depth given in the record."];
+  if (geoms.some(g => g.segments.length > 1)) {
+    notes.push("A multi-segment model has one sub-panel per segment, each with its own along-strike axis; segments are not joined end to end. Its depth profile sums all of its segments.");
+  }
   const derived = geoms.filter(g => g.derived).map(g => publicationCitation(g.model));
   const relative = geoms.filter(g => g.relative).map(g => publicationCitation(g.model));
   if (derived.length) notes.push(`Patch depths computed from top depth + down-dip distance × sin(dip): ${derived.join(", ")}.`);
   if (relative.length) notes.push(`No top depth in the record, so depths are relative to the top of the fault: ${relative.join(", ")}.`);
   document.getElementById("cmpPanelsNote").textContent = notes.join(" ");
+}
+
+// One fault segment against depth, drawn at `s` px per km over 0..zMax depth.
+function compareSegmentCanvas(geo, sg, { M, s, zMax, zStep, dpr, vmax, label }) {
+  const cssW = Math.round(M.l + sg.length * s + M.r), cssH = Math.round(M.t + zMax * s + M.b);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  canvas.style.width = cssW + "px";
+  canvas.style.height = cssH + "px";
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", `Slip of ${label} against depth: ${fmtKm(sg.length)} km along strike, ` +
+    `slip down to ${fmtKm(Math.max(...sg.cells.map(c => c.z1)))} km depth, maximum ${sg.vmax.toFixed(2)} m`);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const X = x => M.l + x * s, Z = z => M.t + z * s;
+  ctx.font = "10px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  // Recessive depth grid and labels.
+  ctx.strokeStyle = "#e6e9ed";
+  ctx.fillStyle = "#5b6572";
+  ctx.lineWidth = 1;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let z = 0; z <= zMax + 1e-9; z += zStep) {
+    ctx.beginPath(); ctx.moveTo(M.l, Math.round(Z(z)) + 0.5); ctx.lineTo(cssW - M.r, Math.round(Z(z)) + 0.5); ctx.stroke();
+    ctx.fillText(fmtKm(z), M.l - 4, Z(z));
+  }
+  ctx.textAlign = "left";
+  ctx.fillText("depth (km)", 2, 6);
+  // The fault plane in depth, then its patches.
+  ctx.fillStyle = "#eef0f3";
+  ctx.fillRect(X(0), Z(sg.top), sg.length * s, (sg.bottom - sg.top) * s);
+  ctx.strokeStyle = "#c5cbd3";
+  ctx.strokeRect(X(0) + 0.5, Z(sg.top) + 0.5, sg.length * s - 1, (sg.bottom - sg.top) * s - 1);
+  const rects = [];
+  sg.cells.forEach(c => {
+    const x = Math.floor(X(c.x0) * dpr) / dpr, y = Math.floor(Z(c.z0) * dpr) / dpr;
+    const w = Math.ceil(X(c.x1) * dpr) / dpr - x, h = Math.ceil(Z(c.z1) * dpr) / dpr - y;
+    ctx.fillStyle = slipColor(c.slip, vmax);
+    ctx.fillRect(x, y, w, h);
+    rects.push({ x, y, w, h, c });
+  });
+  // Hypocentre depth from the record: its position along strike is not known, so a full-width line.
+  if (geo.hypoDepth != null) {
+    ctx.save();
+    ctx.strokeStyle = "#1b1f24";
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(M.l, Math.round(Z(geo.hypoDepth)) + 0.5); ctx.lineTo(cssW - M.r, Math.round(Z(geo.hypoDepth)) + 0.5); ctx.stroke();
+    ctx.restore();
+  }
+  // Along-strike labels (km from this segment's start).
+  ctx.fillStyle = "#5b6572";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.fillText("0", X(0), cssH - M.b + 4);
+  ctx.textAlign = "right";
+  ctx.fillText(`${fmtKm(sg.length)} km`, X(sg.length), cssH - M.b + 4);
+  ctx.textAlign = "center";
+  if (sg.length * s > 150) ctx.fillText("along strike →", X(sg.length / 2), cssH - M.b + 4);
+
+  canvas.addEventListener("pointermove", e => {
+    const r = canvas.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const hit = rects.find(q => px >= q.x && px < q.x + q.w && py >= q.y && py < q.y + q.h);
+    if (!hit) {
+      const z = (py - M.t) / s;
+      if (geo.hypoDepth != null && Math.abs(z - geo.hypoDepth) * s < 4) showCompareInfo(`Hypocentre depth in the record: ${fmtKm(geo.hypoDepth)} km`, e.clientX, e.clientY);
+      else hideCompareInfo();
+      return;
+    }
+    const p = hit.c.p;
+    showCompareInfo(`${label}\nSlip: ${slipNumber(hit.c.slip)}\nDepth: ${fmtKm(hit.c.z)} km` +
+      `\nAlong strike: ${fmtKm(p.along_strike_km)} km · down dip: ${fmtKm(p.down_dip_km)} km`, e.clientX, e.clientY);
+  });
+  canvas.addEventListener("pointerleave", hideCompareInfo);
+  return canvas;
 }
 
 // Spreads each patch's slip over the depth interval it spans and sums it into depth bins.

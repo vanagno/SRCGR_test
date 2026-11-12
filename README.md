@@ -409,14 +409,25 @@ undated earthquakes last, and then by name.
     else `top_depth_km` + down-dip distance × sin(dip). A dashed line marks the
     record's hypocentre depth. Colours use one shared slip scale, or optionally each
     model's own maximum. Horizontal position is the distance along strike from each
-    model's own segment start; the records have no geographic anchor, so the panels
-    are not aligned in space.
+    segment's own start; the records have no geographic anchor, so the panels are
+    not aligned in space. A multi-segment model gets one labelled sub-panel per
+    segment, each with its own along-strike axis; segments are never joined end to
+    end.
   - *Slip versus depth*: one line per model (colour plus a dash pattern) showing
     the mean slip at each depth, or the share of the model's moment in each depth
     bin (uniform rigidity). Each patch's slip is spread over the depth range it
     covers and summed in 0.5-km bins (1-km bins when the compared faults or
     hypocentres reach deeper than 12 km). The legend gives each model's slip-weighted centroid depth and its
-    hypocentre depth, and a data table lists the values.
+    hypocentre depth, and a data table lists the values. A multi-segment model's
+    line sums all of its segments.
+- **Multi-segment models.** Segments are named after their `name`, else
+  `segment_id`, and each slip overview heading (and the full-screen viewer's
+  segment selector) gives the segment's strike, dip and size. A model's segment
+  overviews are drawn at one common km scale, so their lengths and widths compare;
+  each keeps its own along-strike axis. A *Fault segments* table lists each
+  segment's strike / dip / rake, length × width, top depth, maximum slip and share
+  of the model's moment, computed from the record's patches (Σ slip × patch area,
+  uniform rigidity), which is not a published segment moment.
 - **Variant labels** tell apart the models of one earthquake. The label is the first
   of `model_variant.label`, `name`, `description`, `fault_orientation` and
   `variant_id` that is given. Otherwise it is a "north-dipping" or "south-dipping"
